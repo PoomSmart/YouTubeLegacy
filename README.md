@@ -1,6 +1,6 @@
 # YouTubeLegacy
 
-YouTubeLegacy attempts to make old YouTube versions work again. It works from YouTube version 16.32.6+.
+YouTubeLegacy attempts to make old YouTube versions work again. It works from YouTube version 16.32.6+ (iOS 11+). If you are on anything older, please use [TubeRepair](https://tuberepair.bag-xml.com/) instead.
 
 ## List of mitigations
 
