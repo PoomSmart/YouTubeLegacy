@@ -9,9 +9,9 @@ YouTubeLegacy attempts to make old YouTube versions work again. It works from Yo
 
 ## Do I need to install this tweak?
 
-**TL;DR:** Yes, if you are on iOS 13 or below, or you are using the YouTube app version 18.49.3 or below.
+**TL;DR:** Yes, if you are on iOS 11-13, or you are using the YouTube app version 18.49.3 or below.
 
-**2025 TL;DR:** Yes, if you are on iOS 14 or below. This is related to being able to sign in to YouTube.
+**2025 TL;DR:** Yes, if you are on iOS 11-14. This is related to being able to sign in to YouTube.
 
 At the time of writing (Jun 2025), YouTube app version 19.01.1 and higher are not affected by the YouTube server-side changes that require the app to be updated in order to use the app. The reason that iOS 13 is the cutoff is that the latest installable version of YouTube is 17.40.5. For iOS 14, users can go up to version 19.20.2.
 
