@@ -28,7 +28,6 @@
 #import <YouTubeHeader/YTIShelfRenderer.h>
 #import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
-// #import <YouTubeHeader/YTNonCriticalStartupTelemetricSmartScheduler.h>
 #import <YouTubeHeader/YTPivotBarItemView.h>
 #import <YouTubeHeader/YTPlaylistPanelProminentThumbnailVideoCellController.h>
 #import <YouTubeHeader/YTPlaylistPanelSectionController.h>
@@ -584,41 +583,6 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 
 %end
 
-#pragma mark - Fix app crash on launch where there are TVs in the network?
-
-// %group MDX
-
-// YTNonCriticalStartupTelemetricSmartScheduler *(*InjectOptionalYTNonCriticalStartupScheduler)(void);
-// BOOL disableMDXScreenDiscoveryManagerInit = NO;
-
-// %hook MDXScreenDiscoveryManager
-
-// - (id)init {
-//     return disableMDXScreenDiscoveryManagerInit ? nil : %orig;
-// }
-
-// %end
-
-// %hook MDXRealServices
-
-// - (void)scheduleStartUpActions {
-//     YTNonCriticalStartupTelemetricSmartScheduler *scheduler = InjectOptionalYTNonCriticalStartupScheduler();
-//     [scheduler schedule:19 withBlock:^{
-//         [%c(MDXScreenDiscoveryManager) setSharedInstance:[%c(MDXScreenDiscoveryManager) new]];
-//     }];
-//     %orig;
-// }
-
-// - (void)createSharedSingletons {
-//     disableMDXScreenDiscoveryManagerInit = YES;
-//     %orig;
-//     disableMDXScreenDiscoveryManagerInit = NO;
-// }
-
-// %end
-
-// %end
-
 #pragma mark - Improve general JS element compatibility
 
 NSBundle *TweakBundle() {
@@ -798,9 +762,5 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     if (YTPlaylistPageRefreshSupported) {
         %init(PlaylistPageRefresh);
     }
-    // InjectOptionalYTNonCriticalStartupScheduler = MSFindSymbol(ref, "_InjectOptionalYTNonCriticalStartupScheduler");
-    // if (InjectOptionalYTNonCriticalStartupScheduler) {
-    //     %init(MDX);
-    // }
     %init;
 }
