@@ -9,7 +9,6 @@
 #import <YouTubeHeader/ELMNodeFactory.h>
 #import <YouTubeHeader/ELMTextNode.h>
 #import <YouTubeHeader/ELMTouchCommandPropertiesHandler.h>
-// #import <YouTubeHeader/MDXScreenDiscoveryManager.h>
 #import <YouTubeHeader/SRLRegistry.h>
 #import <YouTubeHeader/YTActionSheetAction.h>
 #import <YouTubeHeader/YTAlertView.h>
@@ -27,6 +26,7 @@
 #import <YouTubeHeader/YTIPlaylistPanelVideoRenderer.h>
 #import <YouTubeHeader/YTIReelPlayerOverlayRenderer.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
+#import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
 // #import <YouTubeHeader/YTNonCriticalStartupTelemetricSmartScheduler.h>
 #import <YouTubeHeader/YTPivotBarItemView.h>
@@ -106,6 +106,16 @@
 %hook YTPromosheetEventGroupHandler
 
 - (void)addEventHandlers {}
+
+%end
+
+%hook YTIShowFullscreenInterstitialCommand
+
+- (BOOL)shouldThrottleInterstitial {
+    if (self.hasModalClientThrottlingRules && [[self.elementLoggingContainer.element.type description] containsString:@"https://itunes.apple.com/app/youtube/id544007664"])
+        return YES;
+    return %orig;
+}
 
 %end
 
