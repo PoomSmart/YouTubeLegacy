@@ -17,5 +17,5 @@ At the time of writing (Jun 2025), YouTube app version 19.01.1 and higher are no
 
 ## Notes
 
-- CydiaSubstrate is usually broken on iOS 12 jailbreaks. This may cause false positives where the tweak is not working as expected. Consider switching to Substitute or Libhooker instead. Alternatively, switch to a different jailbreak that has Substitute or Libhooker built-in.
+- CydiaSubstrate is usually broken on iOS 12 jailbreaks. This can cause false positives where the tweak is not working as expected. Consider switching the tweak injection library to Substitute or Libhooker instead. Alternatively, switch to a different jailbreak that has Substitute or Libhooker built-in.
 - You should not modify `Info.plist` of YouTube app while using this tweak as it may cause the tweak to not work properly.

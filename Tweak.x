@@ -25,12 +25,14 @@
 #import <YouTubeHeader/YTIPlaylistPanelRenderer.h>
 #import <YouTubeHeader/YTIPlaylistPanelVideoRenderer.h>
 #import <YouTubeHeader/YTIReelPlayerOverlayRenderer.h>
+#import <YouTubeHeader/YTIShareVideoEndpoint.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
 #import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
 #import <YouTubeHeader/YTPivotBarItemView.h>
 #import <YouTubeHeader/YTPlaylistPanelProminentThumbnailVideoCellController.h>
 #import <YouTubeHeader/YTPlaylistPanelSectionController.h>
+#import <YouTubeHeader/YTReelContentView.h>
 #import <YouTubeHeader/YTRendererForOfflineVideo.h>
 #import <YouTubeHeader/YTUIResources.h>
 #import <YouTubeHeader/YTVideoElementCellController.h>
@@ -49,7 +51,7 @@
 #define YouSpeedButtonPositionKey @"YTVideoOverlay-YouSpeed-Position"
 #define RYDUseItsDataKey @"RYD-USE-LIKE-DATA"
 
-#define IOS_BUILD "19H390"
+#define IOS_BUILD "19H394"
 
 #define TweakName @"YouTubeLegacy"
 #define _LOC(b, x) [b localizedStringForKey:x value:nil table:nil]
@@ -460,7 +462,7 @@ static YTIcon getIconType(YTIIcon *self) {
 
 %end
 
-#pragma mark - Fix Shorts like/dislike buttons not displaying
+#pragma mark - Fix Shorts like/dislike/comments/share buttons not displaying
 
 %hook YTReelWatchPlaybackOverlayView
 
@@ -471,7 +473,38 @@ static YTIcon getIconType(YTIIcon *self) {
 %hook YTReelContentView
 
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
+    // Create like/dislike button
     renderer.likeButton = renderer.doubleTapLikeButton;
+
+    // Create view comments button
+    YTIEngagementPanelIdentifier *identifier = [%c(YTIEngagementPanelIdentifier) message];
+    identifier.surface = 4;
+    identifier.tag = @"shorts-comments-panel";
+    YTICommand *viewCommentsCommand = [%c(YTICommand) message];
+    YTIShowEngagementPanelEndpoint *commentsEndpoint = [%c(YTIShowEngagementPanelEndpoint) message];
+    commentsEndpoint.identifier = identifier;
+    [viewCommentsCommand setExtension:[%c(YTIShowEngagementPanelEndpoint) showEngagementPanelEndpoint] value:commentsEndpoint];
+    YTIRenderer *viewCommentsButtonRenderer = [%c(YTIRenderer) new];
+    YTIButtonRenderer *buttonRenderer = [%c(YTIButtonRenderer) new];
+    // YTIIcon *buttonIcon = [%c(YTIIcon) new];
+    // buttonRenderer.text = [%c(YTIFormattedString) formattedStringWithString:@"Comments"];
+    buttonRenderer.command = viewCommentsCommand;
+    viewCommentsButtonRenderer.buttonRenderer = buttonRenderer;
+    renderer.viewCommentsButton = viewCommentsButtonRenderer;
+
+    // Create share button
+    YTICommand *shareCommand = [%c(YTICommand) message];
+    YTIShareVideoEndpoint *shareEndpoint = [%c(YTIShareVideoEndpoint) message];
+    NSString *videoId = renderer.likeButton.likeButtonRenderer.target.videoId;
+    shareEndpoint.videoId = videoId;
+    shareEndpoint.videoShareURL = [NSString stringWithFormat:@"https://youtube.com/shorts/%@", videoId];
+    [shareCommand setExtension:[%c(YTIShareVideoEndpoint) shareVideoEndpoint] value:shareEndpoint];
+    YTIRenderer *shareButtonRenderer = [%c(YTIRenderer) new];
+    YTIButtonRenderer *shareButton = [%c(YTIButtonRenderer) new];
+    shareButton.command = shareCommand;
+    shareButtonRenderer.buttonRenderer = shareButton;
+    renderer.shareButton = shareButtonRenderer;
+
     %orig;
 }
 
@@ -663,7 +696,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %hook UIDevice
 
 - (NSString *)systemVersion {
-    return @"15.8.4";
+    return @"15.8.5";
 }
 
 %end
@@ -674,7 +707,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     NSOperatingSystemVersion version;
     version.majorVersion = 15;
     version.minorVersion = 8;
-    version.patchVersion = 4;
+    version.patchVersion = 5;
     return version;
 }
 
