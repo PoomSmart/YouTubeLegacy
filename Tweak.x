@@ -15,6 +15,7 @@
 #import <YouTubeHeader/YTAutoplayController.h>
 #import <YouTubeHeader/YTCommandResponderEvent.h>
 #import <YouTubeHeader/YTICompactLinkRenderer.h>
+#import <YouTubeHeader/YTICompactVideoRenderer.h>
 #import <YouTubeHeader/YTICoWatchWatchEndpointWrapperCommand.h>
 #import <YouTubeHeader/YTIElementRenderer.h>
 #import <YouTubeHeader/YTIInlinePlaybackRenderer.h>
@@ -24,6 +25,8 @@
 #import <YouTubeHeader/YTIPivotBarItemRenderer.h>
 #import <YouTubeHeader/YTIPlaylistPanelRenderer.h>
 #import <YouTubeHeader/YTIPlaylistPanelVideoRenderer.h>
+#import <YouTubeHeader/YTIPlaylistVideoListRenderer.h>
+#import <YouTubeHeader/YTIPlaylistVideoRenderer.h>
 #import <YouTubeHeader/YTIReelPlayerOverlayRenderer.h>
 #import <YouTubeHeader/YTIShareVideoEndpoint.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
@@ -32,9 +35,13 @@
 #import <YouTubeHeader/YTPivotBarItemView.h>
 #import <YouTubeHeader/YTPlaylistPanelProminentThumbnailVideoCellController.h>
 #import <YouTubeHeader/YTPlaylistPanelSectionController.h>
+#import <YouTubeHeader/YTPlaylistVideoCellController.h>
+#import <YouTubeHeader/YTPlaylistVideoListSectionController.h>
 #import <YouTubeHeader/YTReelContentView.h>
 #import <YouTubeHeader/YTRendererForOfflineVideo.h>
 #import <YouTubeHeader/YTUIResources.h>
+#import <YouTubeHeader/YTUIUtils.h>
+#import <YouTubeHeader/YTVideoCellController.h>
 #import <YouTubeHeader/YTVideoElementCellController.h>
 #import <YouTubeHeader/YTVideoWithContextNode.h>
 #import <YouTubeHeader/YTWatchTransition.h>
@@ -56,6 +63,8 @@
 #define TweakName @"YouTubeLegacy"
 #define _LOC(b, x) [b localizedStringForKey:x value:nil table:nil]
 #define LOC(x) _LOC(tweakBundle, x)
+
+NSString *realAppVersion;
 
 #pragma mark - Spoof app version
 
@@ -197,6 +206,20 @@ static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *
     return command;
 }
 
+static YTICommand *createRelevantCommandFromPlaylistVideoRenderer(YTIPlaylistVideoRenderer *playlistVideoRenderer, id firstResponder) {
+    NSString *videoID = playlistVideoRenderer.videoId;
+    HBLogDebug(@"videoID: %@", videoID);
+    YTPlaylistVideoCellController *cellController = (YTPlaylistVideoCellController *)firstResponder;
+    YTPlaylistVideoListSectionController *sectionController = cellController.parentResponder;
+    YTIPlaylistVideoListRenderer *listRenderer = (YTIPlaylistVideoListRenderer *)[sectionController renderer];
+    NSUInteger index = [listRenderer.contentsArray indexOfObjectPassingTest:^BOOL(YTIPlaylistVideoListSupportedRenderers *obj, NSUInteger idx, BOOL *stop) {
+        return obj.playlistVideoRenderer == playlistVideoRenderer;
+    }];
+    NSString *playlistID = listRenderer.playlistId;
+    HBLogDebug(@"playlistID: %@", playlistID);
+    return [%c(YTICommand) watchNavigationEndpointWithPlaylistID:playlistID videoID:videoID index:index watchNextToken:nil];
+}
+
 static YTICommand *createRelevantCommandFromPlaylistPanelVideoRenderer(YTIPlaylistPanelVideoRenderer *playlistPanelVideoRenderer, id firstResponder) {
     NSString *videoID = playlistPanelVideoRenderer.videoId;
     HBLogDebug(@"videoID: %@", videoID);
@@ -263,6 +286,8 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
     YTICommand *command = nil;
     if ([entry isKindOfClass:%c(YTIElementRenderer)])
         command = createRelevantCommandFromElementRenderer(entry, (_ASDisplayView *)view, firstResponder);
+    else if ([entry isKindOfClass:%c(YTIPlaylistVideoRenderer)])
+        command = createRelevantCommandFromPlaylistVideoRenderer(entry, firstResponder);
     else if ([entry isKindOfClass:%c(YTIPlaylistPanelVideoRenderer)])
         command = createRelevantCommandFromPlaylistPanelVideoRenderer(entry, firstResponder);
     else if ([entry isKindOfClass:%c(YTIInlinePlaybackRenderer)])
@@ -326,6 +351,28 @@ static ELMNodeController *getNodeControllerParent(ELMNodeController *nodeControl
         }
     }
     %orig;
+}
+
+%end
+
+%hook YTVideoCellController
+
+- (void)setupClientBinding {
+    %orig;
+    id entry = [self entry];
+    if ([entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
+        YTICompactVideoRenderer *videoRenderer = (YTICompactVideoRenderer *)entry;
+        YTICommand *command = [%c(YTICommand) watchNavigationEndpointWithVideoID:videoRenderer.videoId];
+        videoRenderer.navigationEndpoint = command;
+    } else if ([entry isKindOfClass:%c(YTIPlaylistVideoRenderer)]) {
+        YTIPlaylistVideoRenderer *playlistVideoRenderer = (YTIPlaylistVideoRenderer *)entry;
+        YTICommand *command = createRelevantCommandFromPlaylistVideoRenderer(playlistVideoRenderer, self);
+        playlistVideoRenderer.navigationEndpoint = command;
+    } else if ([entry isKindOfClass:%c(YTIPlaylistPanelVideoRenderer)]) {
+        YTIPlaylistPanelVideoRenderer *playlistPanelVideoRenderer = (YTIPlaylistPanelVideoRenderer *)entry;
+        YTICommand *command = createRelevantCommandFromPlaylistPanelVideoRenderer(playlistPanelVideoRenderer, self);
+        playlistPanelVideoRenderer.navigationEndpoint = command;
+    }
 }
 
 %end
@@ -475,19 +522,29 @@ static YTIcon getIconType(YTIIcon *self) {
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
     // Create like/dislike button
     renderer.likeButton = renderer.doubleTapLikeButton;
+    NSString *videoId = renderer.likeButton.likeButtonRenderer.target.videoId;
+    NSString *shortsUrl = [NSString stringWithFormat:@"https://youtube.com/shorts/%@", videoId];
 
     // Create view comments button
+    BOOL viewCommentsRendererSupported = [realAppVersion compare:@"17.10.2" options:NSNumericSearch] != NSOrderedAscending;
     YTIEngagementPanelIdentifier *identifier = [%c(YTIEngagementPanelIdentifier) message];
-    identifier.surface = 4;
+    if (viewCommentsRendererSupported)
+        identifier.surface = 4;
     identifier.tag = @"shorts-comments-panel";
     YTICommand *viewCommentsCommand = [%c(YTICommand) message];
-    YTIShowEngagementPanelEndpoint *commentsEndpoint = [%c(YTIShowEngagementPanelEndpoint) message];
-    commentsEndpoint.identifier = identifier;
-    [viewCommentsCommand setExtension:[%c(YTIShowEngagementPanelEndpoint) showEngagementPanelEndpoint] value:commentsEndpoint];
     YTIRenderer *viewCommentsButtonRenderer = [%c(YTIRenderer) new];
     YTIButtonRenderer *buttonRenderer = [%c(YTIButtonRenderer) new];
-    // YTIIcon *buttonIcon = [%c(YTIIcon) new];
-    // buttonRenderer.text = [%c(YTIFormattedString) formattedStringWithString:@"Comments"];
+    if (viewCommentsRendererSupported) {
+        YTIShowEngagementPanelEndpoint *commentsEndpoint = [%c(YTIShowEngagementPanelEndpoint) message];
+        commentsEndpoint.identifier = identifier;
+        [viewCommentsCommand setExtension:[%c(YTIShowEngagementPanelEndpoint) showEngagementPanelEndpoint] value:commentsEndpoint];
+        // YTIIcon *buttonIcon = [%c(YTIIcon) new];
+        // buttonRenderer.text = [%c(YTIFormattedString) formattedStringWithString:@"Comments"];
+    } else {
+        YTIUrlEndpoint *urlEndpoint = [%c(YTIUrlEndpoint) message];
+        urlEndpoint.URL = shortsUrl;
+        viewCommentsCommand.URLEndpoint = urlEndpoint;
+    }
     buttonRenderer.command = viewCommentsCommand;
     viewCommentsButtonRenderer.buttonRenderer = buttonRenderer;
     renderer.viewCommentsButton = viewCommentsButtonRenderer;
@@ -495,9 +552,8 @@ static YTIcon getIconType(YTIIcon *self) {
     // Create share button
     YTICommand *shareCommand = [%c(YTICommand) message];
     YTIShareVideoEndpoint *shareEndpoint = [%c(YTIShareVideoEndpoint) message];
-    NSString *videoId = renderer.likeButton.likeButtonRenderer.target.videoId;
     shareEndpoint.videoId = videoId;
-    shareEndpoint.videoShareURL = [NSString stringWithFormat:@"https://youtube.com/shorts/%@", videoId];
+    shareEndpoint.videoShareURL = shortsUrl;
     [shareCommand setExtension:[%c(YTIShareVideoEndpoint) shareVideoEndpoint] value:shareEndpoint];
     YTIRenderer *shareButtonRenderer = [%c(YTIRenderer) new];
     YTIButtonRenderer *shareButton = [%c(YTIButtonRenderer) new];
@@ -506,6 +562,16 @@ static YTIcon getIconType(YTIIcon *self) {
     renderer.shareButton = shareButtonRenderer;
 
     %orig;
+}
+
+- (void)showComments {
+    YTIButtonRenderer *viewCommentsButtonRenderer = [self valueForKey:@"_viewCommentsButtonRenderer"];
+    YTIUrlEndpoint *urlEndpoint = viewCommentsButtonRenderer.command.URLEndpoint;
+    if (!urlEndpoint) {
+        %orig;
+        return;
+    }
+    [%c(YTUIUtils) openURL:[NSURL URLWithString:urlEndpoint.URL]];
 }
 
 %end
@@ -750,13 +816,13 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     MSImageRef ref = MSGetImageByName([[bundlePath stringByAppendingString:@"/Module_Framework"] UTF8String]);
     if (ref == NULL) return;
     NSBundle *moduleFrameworkBundle = [NSBundle bundleWithPath:bundlePath];
-    NSString *version = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    if ([version compare:@"19.01.1" options:NSNumericSearch] != NSOrderedAscending) return;
+    realAppVersion = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+    if ([realAppVersion compare:@"19.01.1" options:NSNumericSearch] != NSOrderedAscending) return;
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSString *mainVersion = [mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"];
     NSString *mainShortVersion = [mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    BOOL infoPlistLikelyModified = [version compare:mainVersion options:NSNumericSearch] != NSOrderedSame
-        || [version compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
+    BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
+        || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (![defaults boolForKey:DidApplyDefaultSettingsKey]) {
         [defaults setBool:YES forKey:DidApplyDefaultSettingsKey];
