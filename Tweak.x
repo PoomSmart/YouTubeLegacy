@@ -9,6 +9,7 @@
 #import <YouTubeHeader/ELMNodeFactory.h>
 #import <YouTubeHeader/ELMTextNode.h>
 #import <YouTubeHeader/ELMTouchCommandPropertiesHandler.h>
+#import <YouTubeHeader/NSArray+YouTube.h>
 #import <YouTubeHeader/SRLRegistry.h>
 #import <YouTubeHeader/YTActionSheetAction.h>
 #import <YouTubeHeader/YTAlertView.h>
@@ -144,6 +145,7 @@ static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *
         } while (parentView && !isRelevantContainerView(parentView));
         if (isRelevantContainerView(parentView)) {
             if ([parentView.accessibilityIdentifier isEqualToString:@"horizontal-video-shelf.view"]) {
+                HBLogDebug(@"Finding preferred index in horizontal video shelf");
                 ELMNodeController *nodeController = [view.keepalive_node controller];
                 do {
                     nodeController = nodeController.parent;
@@ -328,18 +330,42 @@ static ELMNodeController *getNodeControllerParent(ELMNodeController *nodeControl
     ELMNodeController *nodeController = [self valueForKey:@"_controller"];
     HBLogDebug(@"nodeController: %@", nodeController);
     if ([nodeController isKindOfClass:%c(ELMNodeController)] && [nodeController.node.accessibilityIdentifier isEqualToString:@"eml.overflow_button"]) {
+        HBLogDebug(@"Overflow button tapped, not playing video");
         %orig;
+        return;
+    }
+    // Workaround: It's not easy to find the linked element renderer or parent responder, so show the overflow menu that then the user can tap Play instead
+    if ([[nodeController key] isEqualToString:@"video-card-cell"]) {
+        HBLogDebug(@"Tapped on video card cell");
+        ELMNodeController *nc = [[nodeController children] firstObject];
+        ELMNodeController *nc2 = [[nc children] yt_objectAtIndexOrNil:1];
+        ELMComponent *overflowButtonComponent = [[nc2 children] lastObject];
+        ELMNodeController *overflowButtonController = [overflowButtonComponent materializedInstance];
+        NSMutableDictionary *properties = [overflowButtonController valueForKey:@"_extendedProperties"];
+        ELMTouchCommandPropertiesHandler *handler = properties[@(168774585)];
+        [handler handleTap];
+        return;
+    }
+    // Same here
+    if ([nodeController.node.accessibilityIdentifier isEqualToString:@"eml.cvr"]) {
+        HBLogDebug(@"Tapped on compact video renderer");
+        ELMNodeController *nc = [[nodeController children] firstObject];
+        ELMComponent *overflowButtonComponent = [[nc children] lastObject];
+        ELMNodeController *overflowButtonController = [overflowButtonComponent materializedInstance];
+        NSMutableDictionary *properties = [overflowButtonController valueForKey:@"_extendedProperties"];
+        ELMTouchCommandPropertiesHandler *handler = properties[@(168774585)];
+        [handler handleTap];
         return;
     }
     id parentNode = nil;
     ELMNodeController *currentController = getNodeControllerParent(nodeController);
     do {
         parentNode = currentController.node;
-        if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)])
+        if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)] || [parentNode isKindOfClass:%c(YTGridVideoNode)])
             break;
         currentController = getNodeControllerParent(currentController);
     } while (currentController);
-    if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)]) {
+    if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)] || [parentNode isKindOfClass:%c(YTGridVideoNode)]) {
         YTVideoElementCellController *cellController = (YTVideoElementCellController *)((YTVideoWithContextNode *)parentNode).parentResponder;
         YTIElementRenderer *renderer = [cellController elementEntry];
         YTICommand *command = createRelevantCommandFromElementRenderer(renderer, nil, cellController);
