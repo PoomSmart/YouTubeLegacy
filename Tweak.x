@@ -19,6 +19,7 @@
 #import <YouTubeHeader/YTICoWatchWatchEndpointWrapperCommand.h>
 #import <YouTubeHeader/YTIElementRenderer.h>
 #import <YouTubeHeader/YTIInlinePlaybackRenderer.h>
+#import <YouTubeHeader/YTIIosSystemShareEndpoint.h>
 #import <YouTubeHeader/YTIItemSectionRenderer.h>
 #import <YouTubeHeader/YTIMenuItemSupportedRenderers.h>
 #import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
@@ -28,7 +29,6 @@
 #import <YouTubeHeader/YTIPlaylistVideoListRenderer.h>
 #import <YouTubeHeader/YTIPlaylistVideoRenderer.h>
 #import <YouTubeHeader/YTIReelPlayerOverlayRenderer.h>
-#import <YouTubeHeader/YTIShareVideoEndpoint.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
 #import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
@@ -551,10 +551,11 @@ static YTIcon getIconType(YTIIcon *self) {
 
     // Create share button
     YTICommand *shareCommand = [%c(YTICommand) message];
-    YTIShareVideoEndpoint *shareEndpoint = [%c(YTIShareVideoEndpoint) message];
-    shareEndpoint.videoId = videoId;
-    shareEndpoint.videoShareURL = shortsUrl;
-    [shareCommand setExtension:[%c(YTIShareVideoEndpoint) shareVideoEndpoint] value:shareEndpoint];
+    YTIIosSystemShareEndpoint *shareEndpoint = [%c(YTIIosSystemShareEndpoint) message];
+    NSString *label = renderer.reelPlayerHeaderSupportedRenderers.reelPlayerHeaderRenderer.accessibility.accessibilityData.label;
+    shareEndpoint.shareSubject = label;
+    shareEndpoint.shareURL = shortsUrl;
+    [shareCommand setExtension:[%c(YTIIosSystemShareEndpoint) iosSystemShareEndpoint] value:shareEndpoint];
     YTIRenderer *shareButtonRenderer = [%c(YTIRenderer) new];
     YTIButtonRenderer *shareButton = [%c(YTIButtonRenderer) new];
     shareButton.command = shareCommand;
@@ -566,13 +567,56 @@ static YTIcon getIconType(YTIIcon *self) {
 
 - (void)showComments {
     YTIButtonRenderer *viewCommentsButtonRenderer = [self valueForKey:@"_viewCommentsButtonRenderer"];
-    YTIUrlEndpoint *urlEndpoint = viewCommentsButtonRenderer.command.URLEndpoint;
-    if (!urlEndpoint) {
+    NSString *url = viewCommentsButtonRenderer.command.URLEndpoint.URL;
+    if (!url.length) {
         %orig;
         return;
     }
-    [%c(YTUIUtils) openURL:[NSURL URLWithString:urlEndpoint.URL]];
+    [%c(YTUIUtils) openURL:[NSURL URLWithString:url]];
 }
+
+%end
+
+#pragma mark - Fix Shorts title/channel not displaying
+
+%hook YTReelWatchHeaderView
+
+- (void)setHeaderRenderer:(YTIReelPlayerHeaderRenderer *)renderer {
+    // Format: "<Title> @<Channel> <Timestamp>"
+    // Example: "Some nice video #somehashtag @sometag something else @niceChannel 2 days ago"
+    NSString *accessibilityLabel = renderer.accessibility.accessibilityData.label;
+    NSRegularExpression *mentionRegex = [NSRegularExpression regularExpressionWithPattern:@"@\\S+" options:0 error:nil];
+    NSArray<NSTextCheckingResult *> *matches = [mentionRegex matchesInString:accessibilityLabel options:0 range:NSMakeRange(0, accessibilityLabel.length)];
+    NSString *title = nil;
+    NSString *channel = nil;
+    NSString *timestamp = nil;
+    if (matches.count > 0) {
+        NSTextCheckingResult *lastMatch = matches.lastObject;
+        channel = [accessibilityLabel substringWithRange:lastMatch.range];
+        NSUInteger start = NSMaxRange(lastMatch.range);
+        if (start < accessibilityLabel.length) {
+            NSString *remainder = [accessibilityLabel substringFromIndex:start];
+            timestamp = [remainder stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        }
+        NSRange titleRange = NSMakeRange(0, lastMatch.range.location);
+        title = [accessibilityLabel substringWithRange:titleRange];
+        title = [title stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    }
+    renderer.channelTitleText = [%c(YTIFormattedString) formattedStringWithString:channel];
+    renderer.reelTitleText = [%c(YTIFormattedString) formattedStringWithString:title];
+    renderer.timestampText = [%c(YTIFormattedString) formattedStringWithString:timestamp];
+    YTICommand *channelNavigationCommand = [%c(YTICommand) browseNavigationEndpointWithChannelID:channel];
+    renderer.channelNavigationEndpoint = channelNavigationCommand;
+    %orig;
+}
+
+%end
+
+#pragma mark - Prevent Shorts from being activated as a separate view controller
+
+%hook YTIReelWatchEndpoint
+
+- (BOOL)shouldPresentModally { return NO; }
 
 %end
 
