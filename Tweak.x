@@ -15,7 +15,7 @@
 #import <YouTubeHeader/YTAlertView.h>
 #import <YouTubeHeader/YTAutoplayController.h>
 #import <YouTubeHeader/YTCommandResponderEvent.h>
-#import <YouTubeHeader/YTICompactLinkRenderer.h>
+#import <YouTubeHeader/YTELMContext.h>
 #import <YouTubeHeader/YTICompactVideoRenderer.h>
 #import <YouTubeHeader/YTICoWatchWatchEndpointWrapperCommand.h>
 #import <YouTubeHeader/YTIElementRenderer.h>
@@ -137,7 +137,10 @@ static BOOL isRelevantContainerView(UIView *view) {
 }
 
 static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *elementRenderer, _ASDisplayView *view, id firstResponder) {
+    if (elementRenderer == nil || firstResponder == nil)
+        return nil;
     NSInteger preferredIndex = NSNotFound;
+    NSString *videoTitle = nil;
     if (view) {
         UIView *parentView = view;
         do {
@@ -155,8 +158,10 @@ static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *
                     ELMNodeController *childNodeController = [obj materializedInstance];
                     return [[[childNodeController children] firstObject] materializedInstance] == nodeController;
                 }];
-            } else
+            } else {
+                videoTitle = [[parentView.accessibilityLabel componentsSeparatedByString:@" - "] firstObject];
                 preferredIndex = [parentView.superview.subviews indexOfObject:parentView];
+            }
         }
     }
     YTICommand *command = nil;
@@ -164,8 +169,22 @@ static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *
     NSString *videoSearchString = @"//www.youtube.com/watch?v=";
     NSRange range = [description rangeOfString:videoSearchString];
     if (preferredIndex != NSNotFound) {
-        while (preferredIndex-- > 0) {
-            range = [description rangeOfString:videoSearchString options:0 range:NSMakeRange(range.location + videoSearchString.length, description.length - (range.location + videoSearchString.length))];
+        if (videoTitle) {
+            // Find video ID range in description that appears between the first and second occurrence of the video title
+            NSString *escapedVideoTitle = [videoTitle stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
+            NSRange titleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch];
+            if (titleRange.location != NSNotFound) {
+                NSRange secondSearchRange = NSMakeRange(titleRange.location + titleRange.length, description.length - (titleRange.location + titleRange.length));
+                NSRange secondTitleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch range:secondSearchRange];
+                if (secondTitleRange.location != NSNotFound) {
+                    NSRange searchRange = NSMakeRange(titleRange.location + titleRange.length, secondTitleRange.location - (titleRange.location + titleRange.length));
+                    range = [description rangeOfString:videoSearchString options:0 range:searchRange];
+                }
+            }
+        } else {
+            while (range.location != NSNotFound && preferredIndex-- > 0) {
+                range = [description rangeOfString:videoSearchString options:0 range:NSMakeRange(range.location + videoSearchString.length, description.length - (range.location + videoSearchString.length))];
+            }
         }
     }
     if (range.location != NSNotFound) {
@@ -318,12 +337,6 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
 
 #pragma mark - Make tapping on a video card playing the video
 
-static ELMNodeController *getNodeControllerParent(ELMNodeController *nodeController) {
-    if ([nodeController respondsToSelector:@selector(parent)])
-        return nodeController.parent;
-    return [nodeController.node.yogaParent controller];
-}
-
 %hook ELMTouchCommandPropertiesHandler
 
 - (void)handleTap {
@@ -334,47 +347,16 @@ static ELMNodeController *getNodeControllerParent(ELMNodeController *nodeControl
         %orig;
         return;
     }
-    // Workaround: It's not easy to find the linked element renderer or parent responder, so show the overflow menu that then the user can tap Play instead
-    if ([[nodeController key] isEqualToString:@"video-card-cell"]) {
-        HBLogDebug(@"Tapped on video card cell");
-        ELMNodeController *nc = [[nodeController children] firstObject];
-        ELMNodeController *nc2 = [[nc children] yt_objectAtIndexOrNil:1];
-        ELMComponent *overflowButtonComponent = [[nc2 children] lastObject];
-        ELMNodeController *overflowButtonController = [overflowButtonComponent materializedInstance];
-        NSMutableDictionary *properties = [overflowButtonController valueForKey:@"_extendedProperties"];
-        ELMTouchCommandPropertiesHandler *handler = properties[@(168774585)];
-        [handler handleTap];
+    YTELMContext *context = [self valueForKey:@"_context"];
+    YTElementsCellController *cellController = [context parentResponder];
+    YTIElementRenderer *renderer = [cellController elementEntry];
+    YTICommand *command = createRelevantCommandFromElementRenderer(renderer, nil, cellController);
+    if (command) {
+        HBLogDebug(@"Playing video via command: %@", command);
+        UIView *view = nodeController.node.view;
+        YTCommandResponderEvent *event = [%c(YTCommandResponderEvent) eventWithCommand:command fromView:view entry:renderer sendClick:NO firstResponder:cellController];
+        [event send];
         return;
-    }
-    // Same here
-    if ([nodeController.node.accessibilityIdentifier isEqualToString:@"eml.cvr"]) {
-        HBLogDebug(@"Tapped on compact video renderer");
-        ELMNodeController *nc = [[nodeController children] firstObject];
-        ELMComponent *overflowButtonComponent = [[nc children] lastObject];
-        ELMNodeController *overflowButtonController = [overflowButtonComponent materializedInstance];
-        NSMutableDictionary *properties = [overflowButtonController valueForKey:@"_extendedProperties"];
-        ELMTouchCommandPropertiesHandler *handler = properties[@(168774585)];
-        [handler handleTap];
-        return;
-    }
-    id parentNode = nil;
-    ELMNodeController *currentController = getNodeControllerParent(nodeController);
-    do {
-        parentNode = currentController.node;
-        if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)] || [parentNode isKindOfClass:%c(YTGridVideoNode)])
-            break;
-        currentController = getNodeControllerParent(currentController);
-    } while (currentController);
-    if ([parentNode isKindOfClass:%c(YTVideoWithContextNode)] || [parentNode isKindOfClass:%c(YTGridVideoNode)]) {
-        YTVideoElementCellController *cellController = (YTVideoElementCellController *)((YTVideoWithContextNode *)parentNode).parentResponder;
-        YTIElementRenderer *renderer = [cellController elementEntry];
-        YTICommand *command = createRelevantCommandFromElementRenderer(renderer, nil, cellController);
-        if (command) {
-            UIView *view = nodeController.node.view;
-            YTCommandResponderEvent *event = [%c(YTCommandResponderEvent) eventWithCommand:command fromView:view entry:renderer sendClick:NO firstResponder:cellController];
-            [event send];
-            return;
-        }
     }
     %orig;
 }
@@ -608,9 +590,9 @@ static YTIcon getIconType(YTIIcon *self) {
 %hook YTReelWatchHeaderView
 
 - (void)setHeaderRenderer:(YTIReelPlayerHeaderRenderer *)renderer {
+    NSString *accessibilityLabel = renderer.accessibility.accessibilityData.label;
     // Format: "<Title> @<Channel> <Timestamp>"
     // Example: "Some nice video #somehashtag @sometag something else @niceChannel 2 days ago"
-    NSString *accessibilityLabel = renderer.accessibility.accessibilityData.label;
     NSRegularExpression *mentionRegex = [NSRegularExpression regularExpressionWithPattern:@"@\\S+" options:0 error:nil];
     NSArray<NSTextCheckingResult *> *matches = [mentionRegex matchesInString:accessibilityLabel options:0 range:NSMakeRange(0, accessibilityLabel.length)];
     NSString *title = nil;
