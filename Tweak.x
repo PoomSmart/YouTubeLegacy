@@ -349,6 +349,10 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
     }
     YTELMContext *context = [self valueForKey:@"_context"];
     YTElementsCellController *cellController = [context parentResponder];
+    if (![cellController isKindOfClass:%c(YTElementsCellController)]) {
+        %orig;
+        return;
+    }
     YTIElementRenderer *renderer = [cellController elementEntry];
     YTICommand *command = createRelevantCommandFromElementRenderer(renderer, nil, cellController);
     if (command) {
