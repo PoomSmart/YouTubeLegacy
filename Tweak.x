@@ -598,6 +598,10 @@ static YTIcon getIconType(YTIIcon *self) {
 
 - (void)setHeaderRenderer:(YTIReelPlayerHeaderRenderer *)renderer {
     NSString *accessibilityLabel = renderer.accessibility.accessibilityData.label;
+    if (!accessibilityLabel.length) {
+        %orig;
+        return;
+    }
     // Format: "<Title> @<Channel> <Timestamp>"
     // Example: "Some nice video #somehashtag @sometag something else @niceChannel 2 days ago"
     NSRegularExpression *mentionRegex = [NSRegularExpression regularExpressionWithPattern:@"@\\S+" options:0 error:nil];
