@@ -46,6 +46,7 @@
 #import <YouTubeHeader/YTVideoElementCellController.h>
 #import <YouTubeHeader/YTVideoWithContextNode.h>
 #import <YouTubeHeader/YTWatchTransition.h>
+#import <YouTubeHeader/YTWrapperSplitViewController.h>
 
 @interface ELMTextNode2 : ELMTextNode
 - (BOOL)isLikeDislikeNode;
@@ -132,58 +133,25 @@ NSString *realAppVersion;
 
 #pragma mark - Add play option menu to videos
 
-static BOOL isRelevantContainerView(UIView *view) {
-    return [view.accessibilityIdentifier isEqualToString:@"eml.vwc"] || [view.accessibilityIdentifier isEqualToString:@"horizontal-video-shelf.view"];
-}
-
 static YTICommand *createRelevantCommandFromElementRenderer(YTIElementRenderer *elementRenderer, _ASDisplayView *view, id firstResponder) {
     if (elementRenderer == nil || firstResponder == nil)
         return nil;
-    NSInteger preferredIndex = NSNotFound;
-    NSString *videoTitle = nil;
-    if (view) {
-        UIView *parentView = view;
-        do {
-            parentView = parentView.superview;
-        } while (parentView && !isRelevantContainerView(parentView));
-        if (isRelevantContainerView(parentView)) {
-            if ([parentView.accessibilityIdentifier isEqualToString:@"horizontal-video-shelf.view"]) {
-                HBLogDebug(@"Finding preferred index in horizontal video shelf");
-                ELMNodeController *nodeController = [view.keepalive_node controller];
-                do {
-                    nodeController = nodeController.parent;
-                } while (nodeController && ![[nodeController key] isEqualToString:@"video-card-cell"]);
-                ELMNodeController *containerNodeController = ((ELMNodeController *)nodeController.parent).parent;
-                preferredIndex = [[containerNodeController children] indexOfObjectPassingTest:^BOOL(ELMComponent *obj, NSUInteger idx, BOOL *stop) {
-                    ELMNodeController *childNodeController = [obj materializedInstance];
-                    return [[[childNodeController children] firstObject] materializedInstance] == nodeController;
-                }];
-            } else {
-                videoTitle = [[parentView.accessibilityLabel componentsSeparatedByString:@" - "] firstObject];
-                preferredIndex = [parentView.superview.subviews indexOfObject:parentView];
-            }
-        }
-    }
+    NSString *videoTitle = [[view.accessibilityLabel componentsSeparatedByString:@" - "] firstObject];
+    HBLogDebug(@"videoTitle: %@", videoTitle);
     YTICommand *command = nil;
     NSString *description = [elementRenderer description];
     NSString *videoSearchString = @"//www.youtube.com/watch?v=";
     NSRange range = [description rangeOfString:videoSearchString];
-    if (preferredIndex != NSNotFound) {
-        if (videoTitle) {
-            // Find video ID range in description that appears between the first and second occurrence of the video title
-            NSString *escapedVideoTitle = [videoTitle stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
-            NSRange titleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch];
-            if (titleRange.location != NSNotFound) {
-                NSRange secondSearchRange = NSMakeRange(titleRange.location + titleRange.length, description.length - (titleRange.location + titleRange.length));
-                NSRange secondTitleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch range:secondSearchRange];
-                if (secondTitleRange.location != NSNotFound) {
-                    NSRange searchRange = NSMakeRange(titleRange.location + titleRange.length, secondTitleRange.location - (titleRange.location + titleRange.length));
-                    range = [description rangeOfString:videoSearchString options:0 range:searchRange];
-                }
-            }
-        } else {
-            while (range.location != NSNotFound && preferredIndex-- > 0) {
-                range = [description rangeOfString:videoSearchString options:0 range:NSMakeRange(range.location + videoSearchString.length, description.length - (range.location + videoSearchString.length))];
+    if (videoTitle) {
+        // Find video ID range in description that appears between the first and second occurrence of the video title
+        NSString *escapedVideoTitle = [videoTitle stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
+        NSRange titleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch];
+        if (titleRange.location != NSNotFound) {
+            NSRange secondSearchRange = NSMakeRange(titleRange.location + titleRange.length, description.length - (titleRange.location + titleRange.length));
+            NSRange secondTitleRange = [description rangeOfString:escapedVideoTitle options:NSLiteralSearch range:secondSearchRange];
+            if (secondTitleRange.location != NSNotFound) {
+                NSRange searchRange = NSMakeRange(titleRange.location + titleRange.length, secondTitleRange.location - (titleRange.location + titleRange.length));
+                range = [description rangeOfString:videoSearchString options:0 range:searchRange];
             }
         }
     }
@@ -357,7 +325,8 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
         return;
     }
     YTIElementRenderer *renderer = [cellController elementEntry];
-    YTICommand *command = createRelevantCommandFromElementRenderer(renderer, nil, cellController);
+    UITapGestureRecognizer *tapRecognizer = [self valueForKey:@"_tapRecognizer"];
+    YTICommand *command = createRelevantCommandFromElementRenderer(renderer, (_ASDisplayView *)tapRecognizer.view, cellController);
     if (command) {
         HBLogDebug(@"Playing video via command: %@", command);
         UIView *view = nodeController.node.view;
@@ -592,6 +561,22 @@ static YTIcon getIconType(YTIIcon *self) {
 
 %end
 
+#pragma mark - Fix video swipe actions in History page not showing icon
+
+%hook YTGridVideoView
+
+- (void)setEntry:(id)entry {
+    YTICompactVideoRenderer *videoRenderer = entry;
+    if ([videoRenderer isKindOfClass:%c(YTICompactVideoRenderer)]) {
+        YTIButtonRenderer *buttonRenderer = [videoRenderer.endSwipeContentsArray firstObject].buttonRenderer;
+        if (buttonRenderer.style == STYLE_BLACK_FILLED)
+            buttonRenderer.style = STYLE_WHITE_TRANSLUCENT_NO_OUTLINE;
+    }
+    %orig;
+}
+
+%end
+
 #pragma mark - Fix Shorts title/channel not displaying
 
 %hook YTReelWatchHeaderView
@@ -742,6 +727,21 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 %hook YTColdConfig
 
 - (BOOL)isLandscapeEngagementPanelEnabled { return YES; }
+
+%end
+
+#pragma mark - Fix split view not updating properly in You tab on iPad
+
+%hook YTWrapperSplitViewController
+
+- (void)updateSplitPane {
+    if (![self.parentViewController isKindOfClass:%c(YTScrollableNavigationController)]) {
+        %orig;
+        return;
+    }
+    [self updateSplitPane_compact];
+    [self maybeSendContentUpdateWithType:2];
+}
 
 %end
 
