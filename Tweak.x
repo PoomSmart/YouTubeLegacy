@@ -305,16 +305,24 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
 
 #pragma mark - Make tapping on a video card playing the video
 
+static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
+    NSString *identifier = nodeController.node.accessibilityIdentifier;
+    if ([identifier isEqualToString:@"eml.overflow_button"]
+        || [identifier isEqualToString:@"eml.shelf_header"]
+        || [identifier isEqualToString:@"eml.cpr"]
+        || [nodeController.key hasPrefix:@"button_container"]) {
+        return YES;
+    }
+    return NO;
+}
+
 %hook ELMTouchCommandPropertiesHandler
 
 - (void)handleTap {
     ELMNodeController *nodeController = [self valueForKey:@"_controller"];
     HBLogDebug(@"nodeController: %@", nodeController);
-    if ([nodeController isKindOfClass:%c(ELMNodeController)]
-        && ([nodeController.node.accessibilityIdentifier isEqualToString:@"eml.overflow_button"]
-            || [nodeController.node.accessibilityIdentifier isEqualToString:@"eml.shelf_header"]
-            || [nodeController.key hasPrefix:@"button_container"])) {
-        HBLogDebug(@"Not handling tap on overflow button, shelf header, or button container");
+    if ([nodeController isKindOfClass:%c(ELMNodeController)] && shouldNotHandleTap(nodeController)) {
+        HBLogDebug(@"Not handling tap");
         %orig;
         return;
     }
