@@ -546,6 +546,23 @@ static YTIcon getIconType(YTIIcon *self) {
     shareButtonRenderer.buttonRenderer = shareButton;
     renderer.shareButton = shareButtonRenderer;
 
+    NSString *rendererDescription = [renderer description];
+    // Find channel ID (UC...) appearing somewhere after "reel_channel_bar.eml"
+    NSRange channelBarRange = [rendererDescription rangeOfString:@"reel_channel_bar.eml"];
+    if (channelBarRange.location != NSNotFound) {
+        NSRange searchRange = NSMakeRange(channelBarRange.location + channelBarRange.length, rendererDescription.length - (channelBarRange.location + channelBarRange.length));
+        NSRegularExpression *channelIdRegex = [NSRegularExpression regularExpressionWithPattern:@"UC[0-9A-Za-z_-]{22}" options:0 error:nil];
+        NSTextCheckingResult *match = [channelIdRegex firstMatchInString:rendererDescription options:0 range:searchRange];
+        if (match) {
+            NSString *channelId = [rendererDescription substringWithRange:match.range];
+            HBLogDebug(@"channelId: %@", channelId);
+            YTICommand *channelNavigationCommand = [%c(YTICommand) message];
+            YTIBrowseEndpoint *browseEndpoint = [%c(YTIBrowseEndpoint) message];
+            browseEndpoint.browseId = channelId;
+            channelNavigationCommand.browseEndpoint = browseEndpoint;
+            renderer.reelPlayerHeaderSupportedRenderers.reelPlayerHeaderRenderer.channelNavigationEndpoint = channelNavigationCommand;
+        }
+    }
     %orig;
 }
 
@@ -570,7 +587,7 @@ static YTIcon getIconType(YTIIcon *self) {
     if ([videoRenderer isKindOfClass:%c(YTICompactVideoRenderer)]) {
         YTIButtonRenderer *buttonRenderer = [videoRenderer.endSwipeContentsArray firstObject].buttonRenderer;
         if (buttonRenderer.style == STYLE_BLACK_FILLED)
-            buttonRenderer.style = STYLE_WHITE_TRANSLUCENT_NO_OUTLINE;
+            buttonRenderer.style = STYLE_DESTRUCTIVE;
     }
     %orig;
 }
@@ -609,8 +626,7 @@ static YTIcon getIconType(YTIIcon *self) {
     renderer.channelTitleText = [%c(YTIFormattedString) formattedStringWithString:channel];
     renderer.reelTitleText = [%c(YTIFormattedString) formattedStringWithString:title];
     renderer.timestampText = [%c(YTIFormattedString) formattedStringWithString:timestamp];
-    YTICommand *channelNavigationCommand = [%c(YTICommand) browseNavigationEndpointWithChannelID:channel];
-    renderer.channelNavigationEndpoint = channelNavigationCommand;
+    renderer.channelNavigationEndpoint.browseEndpoint.canonicalBaseURL = [NSString stringWithFormat:@"/%@", channel];
     %orig;
 }
 
@@ -814,6 +830,18 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 
 - (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
     %orig(filteredArray(array));
+}
+
+%end
+
+#pragma mark - Avoid app crash around decoding CADPCastErrorInfo
+
+%hook GCKRuntimeConfiguration
+
+- (BOOL)boolForKey:(NSString *)key withDefaultValue:(BOOL)defaultValue {
+    if ([key isEqualToString:@"enable_error_info_report_logging"])
+        return NO;
+    return %orig;
 }
 
 %end
