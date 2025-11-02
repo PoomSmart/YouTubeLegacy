@@ -321,7 +321,11 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 - (void)handleTap {
     ELMNodeController *nodeController = [self valueForKey:@"_controller"];
     HBLogDebug(@"nodeController: %@", nodeController);
-    if ([nodeController isKindOfClass:%c(ELMNodeController)] && shouldNotHandleTap(nodeController)) {
+    if (![nodeController isKindOfClass:%c(ELMNodeController)]) {
+        %orig;
+        return;
+    }
+    if (shouldNotHandleTap(nodeController)) {
         HBLogDebug(@"Not handling tap");
         %orig;
         return;
@@ -899,6 +903,27 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 // - (void)logErrorEvent:(id)event {
 //     HBLogInfo(@"logErrorEvent: %@", event);
 //     %orig;
+// }
+
+// %end
+
+// %hook YTELMErrorHandler
+
+// - (void)didNotFindTemplate {
+//     HBLogInfo(@"didNotFindTemplate");
+//     %orig;
+// }
+
+// %end
+
+// %hook YTColdConfig
+
+// - (BOOL)elementsLogNilMaterializedElement {
+//     return YES;
+// }
+
+// - (BOOL)elementsSharedComponentLogNilMaterializedElement {
+//     return YES;
 // }
 
 // %end

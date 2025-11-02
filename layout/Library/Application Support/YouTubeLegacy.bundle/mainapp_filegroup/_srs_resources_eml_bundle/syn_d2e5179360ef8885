@@ -1,2 +1,0 @@
-
-syn|d2e5179360ef8885ãvar Sg=function(a,b){if(!a.container)throw Error("Blocks framework not supported.");if(b)return b=b.ka(S.i()),a.h(X(a.container,Cg,b.h))},Ug=function(a){const b=Lg.i();b.X=1;return Tg(a,b)},Tg=function(a,b){const c=a.h(a.container.create(Pg));return a.h(X(a.container,zg,Og(c,b).h))},Vg=function(a,b){if(b)return new Jg(a,b)},Wg=function(a){return a.u()};(…‘¾‡¶òÅòÒ: gù®úÿfšá6Ï¾åi^v‹¤ÿÁR·ªuH¡Q

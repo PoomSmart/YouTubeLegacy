@@ -1,0 +1,2 @@
+
+sy2|ae503587e32e5504úvar Vc=class extends B{static j(){return new Vc(l(1))}static parse(a){return new Vc(m(a,1))}create(a){return new Vc(a)}ia(){return p(this.h,1)}get context(){return v(this.h,1,a=>new Wc(a),0)}set context(a){r(this.h,1,a,11)}hasExtension(a){return p(this.h,a.fieldNumber)}getExtension(a){return a.F(this.h)}},Wc=class extends B{static j(){return new Wc(l(0))}static parse(a){return new Wc(m(a,0))}create(a){return new Wc(a)}hasExtension(a){return p(this.h,a.fieldNumber)}getExtension(a){return a.F(this.h)}};(„ª¹™ş°¨®

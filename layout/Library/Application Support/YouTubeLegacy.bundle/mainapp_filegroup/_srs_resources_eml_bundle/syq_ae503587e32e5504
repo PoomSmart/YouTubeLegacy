@@ -1,0 +1,3 @@
+
+syq|ae503587e32e5504Åvar yi=function(a,b){const c=ri.j();c.Ga=Ub(b.Ga);a=0===b.Za?vi(a.i,c):wi(a.i,c);switch(b.Ib){case "bool":return si(a)?a.g.i:b.defaultValue;case "int":return si(a)?hi(ii(a.g.l)):b.defaultValue;case "string":return si(a)?a.g.o:b.defaultValue;case "double":return si(a)?a.g.u:b.defaultValue;case "int32_list":return li.parse(si(a)?g(a.g.g):b.defaultValue);case "int64_list":return mi.parse(si(a)?g(a.g.g):b.defaultValue);case "string_list":return ni.parse(si(a)?g(a.g.g):b.defaultValue);default:throw Error("Unknown flag type");
+}},zi=class{constructor(a){this.g=new Map;this.i=a.create(xi)}bb(a){if(0!==a.Za)return yi(this,a);if(this.g.has(a))return this.g.get(a);const b=yi(this,a);this.g.set(a,b);return b}};(„ª¹™ş°¨®
