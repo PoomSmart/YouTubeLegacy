@@ -1,11 +1,11 @@
 Package: com.ps.ytlegacy
 Name: YouTube Legacy
-Version: 1.8.9
+Version: 1.9.0
 Architecture: iphoneos-arm
 Description: Attempts to make old YouTube versions work again.
 Maintainer: PoomSmart
 Author: PoomSmart
 Section: Tweaks
-Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 11.0), com.ps.youspeed, com.ps.ytclassicvideoquality, weeb.lillie.youtubedislikesreturn (>= 1.13.9)
+Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 11.0), com.ps.youspeed | firmware (>= 15.0), com.ps.ytclassicvideoquality | firmware (>= 15.0), weeb.lillie.youtubedislikesreturn (>= 1.13.9) | firmware (>= 15.0)
 Depiction: https://poomsmart.github.io/repo/depictions/ytlegacy.html
 SileoDepiction: https://poomsmart.github.io/repo/sileodepictions/ytlegacy.json

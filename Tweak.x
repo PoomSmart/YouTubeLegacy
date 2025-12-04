@@ -67,6 +67,7 @@
 #define LOC(x) _LOC(tweakBundle, x)
 
 NSString *realAppVersion;
+BOOL isLegacy = NO;
 
 #pragma mark - Spoof app version
 
@@ -90,6 +91,8 @@ NSString *realAppVersion;
     NSString *appVersion = %orig;
     if ([appVersion compare:@"17.10.2" options:NSNumericSearch] == NSOrderedAscending)
         return @"19.14.2";
+    if ([appVersion compare:@"20.24.4" options:NSNumericSearch] == NSOrderedAscending)
+        return @"19.14.2";
     return appVersion;
 }
 
@@ -100,7 +103,7 @@ NSString *realAppVersion;
 %hook SRLRegistry
 
 - (id)internalService:(struct _SRLAPIRegistrationData *)service scopeTags:(struct SRLScopeTagSet)tags {
-    if (strcmp(service->name, "YTECatcherLogger_API") == 0)
+    if (isLegacy && strcmp(service->name, "YTECatcherLogger_API") == 0)
         return nil;
     return %orig;
 }
@@ -268,6 +271,7 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
 %hook YTMenuController
 
 - (NSMutableArray <YTActionSheetAction *> *)actionsForRenderers:(NSMutableArray <YTIMenuItemSupportedRenderers *> *)renderers fromView:(UIView *)view entry:(id)entry shouldLogItems:(BOOL)shouldLogItems firstResponder:(id)firstResponder {
+    if (!isLegacy) return %orig;
     HBLogDebug(@"actionsForRenderers: %@", renderers);
     HBLogDebug(@"view: %@", view);
     HBLogDebug(@"entry: %@", entry);
@@ -319,6 +323,10 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 %hook ELMTouchCommandPropertiesHandler
 
 - (void)handleTap {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
     ELMNodeController *nodeController = [self valueForKey:@"_controller"];
     HBLogDebug(@"nodeController: %@", nodeController);
     if (![nodeController isKindOfClass:%c(ELMNodeController)]) {
@@ -355,6 +363,7 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 
 - (void)setupClientBinding {
     %orig;
+    if (!isLegacy) return;
     id entry = [self entry];
     if ([entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
         YTICompactVideoRenderer *videoRenderer = (YTICompactVideoRenderer *)entry;
@@ -396,7 +405,8 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 
 - (id)initWithParentResponder:(id)parentResponder {
     self = %orig;
-    [[%c(ELMNodeFactory) sharedInstance] registerNodeClass:%c(ELMTextNode2) forTypeExtension:525000000];
+    if (isLegacy)
+        [[%c(ELMNodeFactory) sharedInstance] registerNodeClass:%c(ELMTextNode2) forTypeExtension:525000000];
     return self;
 }
 
@@ -420,7 +430,7 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 %hook YTAppImageStyle
 
 - (UIImage *)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color useNewIcons:(BOOL)useNewIcons selected:(BOOL)selected {
-    if (iconType == YT_ACCOUNT_CIRCLE)
+    if (isLegacy && iconType == YT_ACCOUNT_CIRCLE)
         return [%c(YTUIResources) iconAccountCircle];
     return %orig;
 }
@@ -460,13 +470,13 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 
 - (void)updateTitleAndIcons {
     %orig;
-    if (![self.renderer.pivotIdentifier isEqualToString:@"FElibrary"] || [self respondsToSelector:@selector(setupIconsAndTitles)]) return;
+    if (!isLegacy || ![self.renderer.pivotIdentifier isEqualToString:@"FElibrary"] || [self respondsToSelector:@selector(setupIconsAndTitles)]) return;
     setYouTabIcon(self, self.renderer);
 }
 
 - (void)setRenderer:(YTIPivotBarItemRenderer *)renderer {
     %orig;
-    if (![renderer.pivotIdentifier isEqualToString:@"FElibrary"]) return;
+    if (!isLegacy || ![renderer.pivotIdentifier isEqualToString:@"FElibrary"]) return;
     setYouTabIcon(self, renderer);
 }
 
@@ -482,6 +492,7 @@ static YTIcon getIconType(YTIIcon *self) {
 %hook YTIIcon
 
 - (UIImage *)iconImageWithColor:(UIColor *)color {
+    if (!isLegacy) return %orig;
     YTIcon iconType = getIconType(self);
     if (iconType == YT_CLAPPERBOARD) // Movie icon in You page
         self.iconType = YT_MOVIES;
@@ -491,6 +502,7 @@ static YTIcon getIconType(YTIIcon *self) {
 }
 
 - (UIImage *)iconImageForContextMenu {
+    if (!isLegacy) return %orig;
     switch (getIconType(self)) {
         case YT_UNSUBSCRIBE: // Context menu: Unsubscribe
         case YT_X_CIRCLE:
@@ -509,13 +521,19 @@ static YTIcon getIconType(YTIIcon *self) {
 
 %hook YTReelWatchPlaybackOverlayView
 
-- (void)setActionBarElementRenderer:(id)renderer {}
+- (void)setActionBarElementRenderer:(id)renderer {
+    if (!isLegacy) %orig;
+}
 
 %end
 
 %hook YTReelContentView
 
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
     // Create like/dislike button
     renderer.likeButton = renderer.doubleTapLikeButton;
     NSString *videoId = renderer.likeButton.likeButtonRenderer.target.videoId;
@@ -579,6 +597,10 @@ static YTIcon getIconType(YTIIcon *self) {
 }
 
 - (void)showComments {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
     YTIButtonRenderer *viewCommentsButtonRenderer = [self valueForKey:@"_viewCommentsButtonRenderer"];
     NSString *url = viewCommentsButtonRenderer.command.URLEndpoint.URL;
     if (!url.length) {
@@ -595,8 +617,8 @@ static YTIcon getIconType(YTIIcon *self) {
 %hook YTGridVideoView
 
 - (void)setEntry:(id)entry {
-    YTICompactVideoRenderer *videoRenderer = entry;
-    if ([videoRenderer isKindOfClass:%c(YTICompactVideoRenderer)]) {
+    if (isLegacy && [entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
+        YTICompactVideoRenderer *videoRenderer = entry;
         YTIButtonRenderer *buttonRenderer = [videoRenderer.endSwipeContentsArray firstObject].buttonRenderer;
         if (buttonRenderer.style == STYLE_BLACK_FILLED)
             buttonRenderer.style = STYLE_DESTRUCTIVE;
@@ -611,6 +633,10 @@ static YTIcon getIconType(YTIIcon *self) {
 %hook YTReelWatchHeaderView
 
 - (void)setHeaderRenderer:(YTIReelPlayerHeaderRenderer *)renderer {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
     NSString *accessibilityLabel = renderer.accessibility.accessibilityData.label;
     if (!accessibilityLabel.length) {
         %orig;
@@ -697,6 +723,7 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 %hook YTAutoplayController
 
 - (id)navEndpointHavingWatchEndpointOrNil:(YTICommand *)endpoint {
+    if (!isLegacy) return %orig;
     return [endpoint hasActiveOnlineOrOfflineWatchEndpoint]
         || getWatchEndpoint(endpoint) != nil
         ? endpoint : nil;
@@ -713,7 +740,7 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 // }
 
 - (void)sendWatchTransitionWithNavEndpoint:(YTICommand *)navEndpoint watchEndpointSource:(int)watchEndpointSource {
-    if (![navEndpoint hasActiveOnlineOrOfflineWatchEndpoint]) {
+    if (isLegacy && ![navEndpoint hasActiveOnlineOrOfflineWatchEndpoint]) {
         YTICommand *watchEndpoint = getWatchEndpoint(navEndpoint);
         if (watchEndpoint) {
             HBLogDebug(@"sendWatchTransitionWithNavEndpoint: %@, watchEndpointSource: %d", watchEndpoint, watchEndpointSource);
@@ -730,13 +757,14 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 %hook YTAutonavController
 
 - (id)navEndpointHavingWatchEndpointOrNil:(YTICommand *)endpoint {
+    if (!isLegacy) return %orig;
     return [endpoint hasActiveOnlineOrOfflineWatchEndpoint]
         || [endpoint hasExtension:getCoWatchEndpointWrapperCommandDescriptor()]
         ? endpoint : nil;
 }
 
 - (void)sendWatchTransitionWithNavEndpoint:(YTICommand *)navEndpoint watchEndpointSource:(int)watchEndpointSource {
-    if (![navEndpoint hasActiveOnlineOrOfflineWatchEndpoint]) {
+    if (isLegacy && ![navEndpoint hasActiveOnlineOrOfflineWatchEndpoint]) {
         YTICommand *watchEndpoint = getWatchEndpoint(navEndpoint);
         if (watchEndpoint) {
             HBLogDebug(@"sendWatchTransitionWithNavEndpoint: %@, watchEndpointSource: %d", watchEndpoint, watchEndpointSource);
@@ -763,7 +791,7 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 %hook YTWrapperSplitViewController
 
 - (void)updateSplitPane {
-    if (![self.parentViewController isKindOfClass:%c(YTScrollableNavigationController)]) {
+    if (!isLegacy || ![self.parentViewController isKindOfClass:%c(YTScrollableNavigationController)]) {
         %orig;
         return;
     }
@@ -788,6 +816,7 @@ NSBundle *TweakBundle() {
 %hook YTDataPushEmbeddedPayloadBundleProviderImpl
 
 - (NSBundle *)embeddedPayloadBundle {
+    if (!isLegacy) return %orig;
     NSBundle *bundle = TweakBundle();
     return bundle ?: %orig;
 }
@@ -835,13 +864,17 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %hook YTInnerTubeCollectionViewController
 
 - (void)displaySectionsWithReloadingSectionControllerByRenderer:(id)renderer {
-    NSMutableArray *sectionRenderers = [self valueForKey:@"_sectionRenderers"];
-    [self setValue:filteredArray(sectionRenderers) forKey:@"_sectionRenderers"];
+    if (isLegacy) {
+        NSMutableArray *sectionRenderers = [self valueForKey:@"_sectionRenderers"];
+        [self setValue:filteredArray(sectionRenderers) forKey:@"_sectionRenderers"];
+    }
     %orig;
 }
 
 - (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
-    %orig(filteredArray(array));
+    if (isLegacy)
+        array = filteredArray(array);
+    %orig(array);
 }
 
 %end
@@ -851,7 +884,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %hook GCKRuntimeConfiguration
 
 - (BOOL)boolForKey:(NSString *)key withDefaultValue:(BOOL)defaultValue {
-    if ([key isEqualToString:@"enable_error_info_report_logging"])
+    if (isLegacy && [key isEqualToString:@"enable_error_info_report_logging"])
         return NO;
     return %orig;
 }
@@ -938,52 +971,59 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     NSString *bundlePath = [NSString stringWithFormat:@"%@/Frameworks/Module_Framework.framework", NSBundle.mainBundle.bundlePath];
     dlopen([bundlePath UTF8String], RTLD_NOW);
     MSImageRef ref = MSGetImageByName([[bundlePath stringByAppendingString:@"/Module_Framework"] UTF8String]);
-    if (ref == NULL) return;
+    NSBundle *tweakBundle = TweakBundle();
     NSBundle *moduleFrameworkBundle = [NSBundle bundleWithPath:bundlePath];
-    realAppVersion = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    if ([realAppVersion compare:@"19.01.1" options:NSNumericSearch] != NSOrderedAscending) return;
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSString *mainVersion = [mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"];
     NSString *mainShortVersion = [mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
-        || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    if (![defaults boolForKey:DidApplyDefaultSettingsKey]) {
-        [defaults setBool:YES forKey:DidApplyDefaultSettingsKey];
-        [defaults setBool:YES forKey:YouSpeedEnabledKey];
-        [defaults setInteger:1 forKey:YouSpeedButtonPositionKey];
-        [defaults synchronize];
-    }
-    if (![defaults boolForKey:DidApplyDefaultSettings2Key]) {
-        [defaults setBool:YES forKey:DidApplyDefaultSettings2Key];
-        [defaults setBool:YES forKey:RYDUseItsDataKey];
-        [defaults synchronize];
-    }
-    NSBundle *tweakBundle = TweakBundle();
-    if (![defaults boolForKey:DidShowInformationAlertKey]) {
-        [defaults setBool:YES forKey:DidShowInformationAlertKey];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            YTAlertView *alertView = [%c(YTAlertView) infoDialog];
-            alertView.title = TweakName;
-            alertView.subtitle = LOC(@"TWEAK_INFORMATION");
-            [alertView show];
-        });
-    }
-    if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {
-        [defaults setBool:YES forKey:DidShowInformationAlert2Key];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            YTAlertView *alertView = [%c(YTAlertView) infoDialog];
-            alertView.title = TweakName;
-            alertView.subtitle = LOC(@"INCONSISTENT_VERSION_INFORMATION");
-            [alertView show];
-        });
+    if (moduleFrameworkBundle) {
+        realAppVersion = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+        if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
+        isLegacy = YES;
+        BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
+            || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
+        if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {
+            [defaults setBool:YES forKey:DidShowInformationAlert2Key];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                YTAlertView *alertView = [%c(YTAlertView) infoDialog];
+                alertView.title = TweakName;
+                alertView.subtitle = LOC(@"INCONSISTENT_VERSION_INFORMATION");
+                [alertView show];
+            });
+        }
+        if (![defaults boolForKey:DidApplyDefaultSettingsKey]) {
+            [defaults setBool:YES forKey:DidApplyDefaultSettingsKey];
+            [defaults setBool:YES forKey:YouSpeedEnabledKey];
+            [defaults setInteger:1 forKey:YouSpeedButtonPositionKey];
+            [defaults synchronize];
+        }
+        if (![defaults boolForKey:DidApplyDefaultSettings2Key]) {
+            [defaults setBool:YES forKey:DidApplyDefaultSettings2Key];
+            [defaults setBool:YES forKey:RYDUseItsDataKey];
+            [defaults synchronize];
+        }
+        if (![defaults boolForKey:DidShowInformationAlertKey]) {
+            [defaults setBool:YES forKey:DidShowInformationAlertKey];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                YTAlertView *alertView = [%c(YTAlertView) infoDialog];
+                alertView.title = TweakName;
+                alertView.subtitle = LOC(@"TWEAK_INFORMATION");
+                [alertView show];
+            });
+        }
+        if (ref) {
+            YTPlaylistPageRefreshSupported = MSFindSymbol(ref, "_YTPlaylistPageRefreshSupported");
+            if (YTPlaylistPageRefreshSupported) {
+                %init(PlaylistPageRefresh);
+            }
+        }
+    } else {
+        realAppVersion = mainVersion;
+        if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
     }
     if (!IS_IOS_OR_NEWER(iOS_15_0)) {
         %init(Spoofing);
-    }
-    YTPlaylistPageRefreshSupported = MSFindSymbol(ref, "_YTPlaylistPageRefreshSupported");
-    if (YTPlaylistPageRefreshSupported) {
-        %init(PlaylistPageRefresh);
     }
     %init;
 }
