@@ -79,20 +79,17 @@ BOOL isLegacy = NO;
 
 %hook YTVersionUtils
 
-// Works down to 17.x.x
 + (NSString *)appVersionLong {
     NSString *appVersion = %orig;
-    if ([appVersion compare:@"19.01.1" options:NSNumericSearch] == NSOrderedAscending)
-        return @"19.01.1";
+    if ([appVersion compare:@"20.21.6" options:NSNumericSearch] == NSOrderedAscending)
+        return @"20.21.6";
     return appVersion;
 }
 
 + (NSString *)appVersion {
     NSString *appVersion = %orig;
-    if ([appVersion compare:@"17.10.2" options:NSNumericSearch] == NSOrderedAscending)
-        return @"19.14.2";
-    if ([appVersion compare:@"20.24.4" options:NSNumericSearch] == NSOrderedAscending)
-        return @"19.14.2";
+    if ([appVersion compare:@"20.21.6" options:NSNumericSearch] == NSOrderedAscending)
+        return @"20.21.6";
     return appVersion;
 }
 
@@ -482,6 +479,21 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 
 %end
 
+#pragma mark - Fix tab icons not displaying
+
+%hook YTAppPivotBarItemStyle
+
+- (id)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color {
+    if (!isLegacy) return %orig;
+    if (iconType == YT_TAB_HOME_CAIRO) iconType = YT_TAB_HOME;
+    else if (iconType == YT_TAB_SHORTS_CAIRO) iconType = YT_TAB_SHORTS;
+    else if (iconType == YT_CREATION_TAB_LARGE_CAIRO) iconType = YT_CREATION_TAB_LARGE;
+    else if (iconType == YT_TAB_SUBSCRIPTIONS_CAIRO) iconType = YT_TAB_SUBSCRIPTIONS;
+    return %orig;
+}
+
+%end
+
 #pragma mark - Fix icons not displaying
 
 static YTIcon getIconType(YTIIcon *self) {
@@ -498,6 +510,12 @@ static YTIcon getIconType(YTIIcon *self) {
         self.iconType = YT_MOVIES;
     else if (iconType == YT_SELL) // Purchases icon in You page
         self.iconType = YT_PURCHASES;
+    else if (iconType == YT_TAB_ACTIVITY_CAIRO) // Notification button
+        self.iconType = YT_TAB_ACTIVITY;
+    else if (iconType == YT_SETTINGS_CAIRO) // Settings button
+        self.iconType = YT_SETTINGS;
+    else if (iconType == YT_SEARCH_CAIRO) // Search button
+        self.iconType = YT_SEARCH;
     return %orig;
 }
 
@@ -527,13 +545,7 @@ static YTIcon getIconType(YTIIcon *self) {
 
 %end
 
-%hook YTReelContentView
-
-- (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
-    if (!isLegacy) {
-        %orig;
-        return;
-    }
+static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRenderer *renderer) {
     // Create like/dislike button
     renderer.likeButton = renderer.doubleTapLikeButton;
     NSString *videoId = renderer.likeButton.likeButtonRenderer.target.videoId;
@@ -593,6 +605,25 @@ static YTIcon getIconType(YTIIcon *self) {
             renderer.reelPlayerHeaderSupportedRenderers.reelPlayerHeaderRenderer.channelNavigationEndpoint = channelNavigationCommand;
         }
     }
+}
+
+%hook YTReelContentView
+
+- (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
+    setOverlayRenderer(self, renderer);
+    %orig;
+}
+
+- (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer isFullOverlayResponse:(BOOL)isFullOverlayResponse {
+    if (!isLegacy) {
+        %orig;
+        return;
+    }
+    setOverlayRenderer(self, renderer);
     %orig;
 }
 
@@ -930,6 +961,26 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 
 #pragma mark - Debug
+
+// static void debugURLRequest(NSMutableURLRequest *request, NSString *method) {
+//     HBLogInfo(@"YTL %@: %@", method, request);
+// }
+
+// %hook YTAccountScopedInnerTubeServiceImpl
+
+// - (NSMutableURLRequest *)URLRequestWithRequest:(id)arg1 method:(NSString *)method timeoutInterval:(NSTimeInterval)arg3 {
+//     NSMutableURLRequest *request = %orig;
+//     debugURLRequest(request, method);
+//     return request;
+// }
+
+// - (NSMutableURLRequest *)URLRequestWithRequest:(id)arg1 method:(NSString *)method timeoutInterval:(NSTimeInterval)arg3 cacheKeysForStreamingResponsesFoundInCache:(id)arg4 {
+//     NSMutableURLRequest *request = %orig;
+//     debugURLRequest(request, method);
+//     return request;
+// }
+
+// %end
 
 // %hook YTELMLogger
 
