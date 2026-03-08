@@ -13,6 +13,7 @@
 #import <YouTubeHeader/SRLRegistry.h>
 #import <YouTubeHeader/YTActionSheetAction.h>
 #import <YouTubeHeader/YTAlertView.h>
+#import <YouTubeHeader/YTAutoplayAutonavController.h>
 #import <YouTubeHeader/YTAutoplayController.h>
 #import <YouTubeHeader/YTCommandResponderEvent.h>
 #import <YouTubeHeader/YTELMContext.h>
@@ -805,6 +806,20 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
     }
     HBLogDebug(@"original sendWatchTransitionWithNavEndpoint: %@, watchEndpointSource: %d", navEndpoint, watchEndpointSource);
     %orig;
+}
+
+%end
+
+%hook YTAutoplayAutonavController
+
+- (id)nextEndpointForAutonav {
+    id endpoint = %orig;
+    return endpoint ?: [self nextEndpointForAutoplay];
+}
+
+- (id)previousEndpointForAutonav {
+    id endpoint = %orig;
+    return endpoint ?: [self previousEndpointForAutoplay];
 }
 
 %end
