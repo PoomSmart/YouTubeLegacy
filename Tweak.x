@@ -61,7 +61,7 @@
 #define YouSpeedButtonPositionKey @"YTVideoOverlay-YouSpeed-Position"
 #define RYDUseItsDataKey @"RYD-USE-LIKE-DATA"
 
-#define IOS_BUILD "19H394"
+#define IOS_BUILD "19H411"
 
 #define TweakName @"YouTubeLegacy"
 #define _LOC(b, x) [b localizedStringForKey:x value:nil table:nil]
@@ -944,7 +944,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %hook UIDevice
 
 - (NSString *)systemVersion {
-    return @"15.8.5";
+    return @"15.8.7";
 }
 
 %end
@@ -955,7 +955,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     NSOperatingSystemVersion version;
     version.majorVersion = 15;
     version.minorVersion = 8;
-    version.patchVersion = 5;
+    version.patchVersion = 7;
     return version;
 }
 
