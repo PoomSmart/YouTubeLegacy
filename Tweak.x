@@ -5,6 +5,8 @@
 #import <PSHeader/Misc.h>
 #import <YouTubeHeader/_ASDisplayView.h>
 #import <YouTubeHeader/ASCollectionView.h>
+#import <YouTubeHeader/ASEditableTextNode.h>
+#import <YouTubeHeader/ELMView.h>
 #import <YouTubeHeader/ELMNodeController.h>
 #import <YouTubeHeader/ELMNodeFactory.h>
 #import <YouTubeHeader/ELMTextNode.h>
@@ -15,6 +17,7 @@
 #import <YouTubeHeader/YTAlertView.h>
 #import <YouTubeHeader/YTAutoplayAutonavController.h>
 #import <YouTubeHeader/YTAutoplayController.h>
+#import <YouTubeHeader/YTColorPalette.h>
 #import <YouTubeHeader/YTCommandResponderEvent.h>
 #import <YouTubeHeader/YTELMContext.h>
 #import <YouTubeHeader/YTICompactVideoRenderer.h>
@@ -24,7 +27,9 @@
 #import <YouTubeHeader/YTIIosSystemShareEndpoint.h>
 #import <YouTubeHeader/YTIItemSectionRenderer.h>
 #import <YouTubeHeader/YTIMenuItemSupportedRenderers.h>
+#import <YouTubeHeader/YTIOpenElementsScreenCommand.h>
 #import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
+#import <YouTubeHeader/YTIPivotBarIconOnlyItemRenderer.h>
 #import <YouTubeHeader/YTIPivotBarItemRenderer.h>
 #import <YouTubeHeader/YTIPlaylistPanelRenderer.h>
 #import <YouTubeHeader/YTIPlaylistPanelVideoRenderer.h>
@@ -34,6 +39,7 @@
 #import <YouTubeHeader/YTIShelfRenderer.h>
 #import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
+#import <YouTubeHeader/YTPageStyleController.h>
 #import <YouTubeHeader/YTPivotBarItemView.h>
 #import <YouTubeHeader/YTPlaylistPanelProminentThumbnailVideoCellController.h>
 #import <YouTubeHeader/YTPlaylistPanelSectionController.h>
@@ -69,6 +75,285 @@
 
 NSString *realAppVersion;
 BOOL isLegacy = NO;
+static id (*ELMMakeElementFunc)(id data, id context) = NULL;
+static NSString *const YTLLegacyFallbackColorAttributeName = @"YTL_LegacyFallbackColor";
+
+static ELMNodeController *nodeControllerForELMView(ELMView *elmView) {
+    id controller = nil;
+    @try {
+        controller = [elmView valueForKey:@"_strongRootController"];
+        if (!controller)
+            controller = [elmView valueForKey:@"_rootController"];
+    } @catch (NSException *exception) {
+        return nil;
+    }
+    if ([controller respondsToSelector:@selector(materializedInstance)]) {
+        id materializedInstance = [controller materializedInstance];
+        if (materializedInstance)
+            controller = materializedInstance;
+    }
+    return [controller isKindOfClass:%c(ELMNodeController)] ? controller : nil;
+}
+
+static void refreshELMViewsInView(UIView *view) {
+    if ([view isKindOfClass:%c(ELMView)]) {
+        ELMNodeController *nodeController = nodeControllerForELMView((ELMView *)view);
+        if (nodeController) {
+            id element = [nodeController element];
+            if (element)
+                [nodeController updateWithElement:element];
+        }
+    }
+    for (UIView *subview in view.subviews)
+        refreshELMViewsInView(subview);
+}
+
+static ASTextNode *textNodeForDisplayView(_ASDisplayView *displayView) {
+    id node = nil;
+    @try {
+        node = [displayView valueForKey:@"_asyncdisplaykit_node"];
+        if (!node)
+            node = [displayView keepalive_node];
+    } @catch (NSException *exception) {
+        node = [displayView keepalive_node];
+    }
+    return [node isKindOfClass:%c(ASTextNode)] ? node : nil;
+}
+
+static void refreshVisibleELMViews(void) {
+    UIApplication *application = [UIApplication sharedApplication];
+#pragma clang diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    for (UIWindow *window in application.windows)
+#pragma clang diagnostic pop
+        refreshELMViewsInView(window);
+}
+
+static void rebuildOpenElementsControllerIfNeeded(id controller) {
+    if (!isLegacy || !ELMMakeElementFunc)
+        return;
+
+    id command = nil;
+    id context = nil;
+    ELMView *elementView = nil;
+    @try {
+        command = [controller valueForKey:@"_command"];
+        context = [controller valueForKey:@"_context"];
+        elementView = [controller valueForKey:@"_elementView"];
+    } @catch (NSException *exception) {
+        return;
+    }
+
+    if (!command || !context || !elementView)
+        return;
+
+    NSInteger pageStyle = [%c(YTPageStyleController) pageStyle];
+    BOOL shouldForceDarkTheme = pageStyle == 1;
+    [(YTIOpenElementsScreenCommand *)command setForceDarkTheme:shouldForceDarkTheme];
+
+    id commandElement = [(YTIOpenElementsScreenCommand *)command element];
+    if (!commandElement)
+        return;
+
+    id elementData = [(YTIOpenElementsScreenCommandElement *)commandElement data];
+    if (!elementData)
+        return;
+
+    id newElement = ELMMakeElementFunc(elementData, context);
+    if (!newElement)
+        return;
+
+    ELMNodeController *nodeController = nodeControllerForELMView(elementView);
+    if (nodeController)
+        [nodeController updateWithElement:newElement];
+}
+
+static BOOL attributedStringHasForegroundColor(NSAttributedString *attributedString) {
+    if (attributedString.length == 0)
+        return NO;
+    __block BOOL hasForegroundColor = NO;
+    [attributedString enumerateAttribute:NSForegroundColorAttributeName
+                                 inRange:NSMakeRange(0, attributedString.length)
+                                 options:0
+                              usingBlock:^(id value, NSRange range, BOOL *stop) {
+        if (value != nil) {
+            hasForegroundColor = YES;
+            *stop = YES;
+        }
+    }];
+    return hasForegroundColor;
+}
+
+static BOOL legacyTextColorsEqual(UIColor *firstColor, UIColor *secondColor) {
+    if (firstColor == secondColor)
+        return YES;
+    if (!firstColor || !secondColor)
+        return NO;
+    if ([firstColor isEqual:secondColor])
+        return YES;
+    return CGColorEqualToColor(firstColor.CGColor, secondColor.CGColor);
+}
+
+static NSInteger currentLegacyPageStyle(void) {
+    return [%c(YTPageStyleController) pageStyle];
+}
+
+static BOOL attributedStringHasLegacyFallbackColor(NSAttributedString *attributedString) {
+    if (attributedString.length == 0)
+        return NO;
+    __block BOOL hasLegacyFallbackColor = NO;
+    [attributedString enumerateAttribute:YTLLegacyFallbackColorAttributeName
+                                 inRange:NSMakeRange(0, attributedString.length)
+                                 options:0
+                              usingBlock:^(id value, NSRange range, BOOL *stop) {
+        if (value != nil) {
+            hasLegacyFallbackColor = YES;
+            *stop = YES;
+        }
+    }];
+    return hasLegacyFallbackColor;
+}
+
+static BOOL attributedStringHasSingleForegroundColor(NSAttributedString *attributedString, UIColor **foregroundColor) {
+    if (foregroundColor)
+        *foregroundColor = nil;
+    if (attributedString.length == 0)
+        return NO;
+
+    __block UIColor *resolvedColor = nil;
+    __block BOOL didInspectFirstRange = NO;
+    __block BOOL hasSingleForegroundColor = YES;
+    [attributedString enumerateAttribute:NSForegroundColorAttributeName
+                                 inRange:NSMakeRange(0, attributedString.length)
+                                 options:0
+                              usingBlock:^(id value, NSRange range, BOOL *stop) {
+        UIColor *currentColor = [value isKindOfClass:UIColor.class] ? value : nil;
+        if (!didInspectFirstRange) {
+            resolvedColor = currentColor;
+            didInspectFirstRange = YES;
+            return;
+        }
+
+        if ((resolvedColor == nil) != (currentColor == nil) || (resolvedColor && !legacyTextColorsEqual(resolvedColor, currentColor))) {
+            hasSingleForegroundColor = NO;
+            *stop = YES;
+        }
+    }];
+
+    if (!hasSingleForegroundColor)
+        return NO;
+
+    if (foregroundColor)
+        *foregroundColor = resolvedColor;
+    return resolvedColor != nil;
+}
+
+static UIColor *legacyFallbackTextColorForPageStyle(NSInteger pageStyle) {
+    UIColor *fallbackTextColor = nil;
+    id legacyPaletteClass = %c(YTColorPalette);
+    id legacyPalette = nil;
+    legacyPalette = [legacyPaletteClass colorPaletteForPageStyle:pageStyle];
+    if (!legacyPalette && pageStyle == 1)
+        legacyPalette = [legacyPaletteClass darkPalette];
+    if (!legacyPalette && pageStyle != 1)
+        legacyPalette = [legacyPaletteClass lightPalette];
+
+    if (pageStyle == 1) {
+        fallbackTextColor = [legacyPalette textPrimary];
+        if (!fallbackTextColor)
+            fallbackTextColor = [legacyPalette overlayTextPrimary];
+        if (!fallbackTextColor)
+            fallbackTextColor = [legacyPalette textPrimaryInverse];
+        if (!fallbackTextColor)
+            fallbackTextColor = [legacyPalette staticBrandWhite];
+        if (!fallbackTextColor)
+            fallbackTextColor = UIColor.whiteColor;
+    } else {
+        fallbackTextColor = [legacyPalette staticBrandBlack];
+        if (!fallbackTextColor)
+            fallbackTextColor = [legacyPalette textPrimary];
+        if (!fallbackTextColor)
+            fallbackTextColor = [legacyPalette overlayTextPrimary];
+        if (!fallbackTextColor)
+            fallbackTextColor = UIColor.blackColor;
+    }
+
+    return fallbackTextColor;
+}
+
+static BOOL shouldForceLegacyFallbackTextColorForTextNode(ASTextNode *textNode, NSAttributedString *attributedString) {
+    if (!isLegacy || attributedString.length == 0)
+        return NO;
+    if (attributedStringHasLegacyFallbackColor(attributedString))
+        return YES;
+    if (!attributedStringHasForegroundColor(attributedString))
+        return YES;
+
+    if (![textNode isKindOfClass:%c(ELMTextNode)] && ![textNode isKindOfClass:%c(ASEditableTextNode)])
+        return NO;
+
+    UIColor *resolvedColor = nil;
+    if (!attributedStringHasSingleForegroundColor(attributedString, &resolvedColor) || !resolvedColor)
+        return NO;
+
+    UIColor *darkThemeColor = legacyFallbackTextColorForPageStyle(1);
+    UIColor *lightThemeColor = legacyFallbackTextColorForPageStyle(0);
+    return legacyTextColorsEqual(resolvedColor, darkThemeColor)
+        || legacyTextColorsEqual(resolvedColor, lightThemeColor)
+        || legacyTextColorsEqual(resolvedColor, UIColor.whiteColor)
+        || legacyTextColorsEqual(resolvedColor, UIColor.blackColor);
+}
+
+static void applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(ASTextNode *textNode, NSMutableAttributedString *attributedString) {
+    if (!shouldForceLegacyFallbackTextColorForTextNode(textNode, attributedString))
+        return;
+
+    [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
+    [attributedString removeAttribute:YTLLegacyFallbackColorAttributeName range:NSMakeRange(0, attributedString.length)];
+
+    UIColor *fallbackTextColor = legacyFallbackTextColorForPageStyle(currentLegacyPageStyle());
+    [attributedString addAttribute:NSForegroundColorAttributeName
+                             value:fallbackTextColor
+                             range:NSMakeRange(0, attributedString.length)];
+    [attributedString addAttribute:YTLLegacyFallbackColorAttributeName
+                             value:@YES
+                             range:NSMakeRange(0, attributedString.length)];
+}
+
+static void invalidateLegacyTextNodesInView(UIView *view) {
+    if ([view isKindOfClass:%c(_ASDisplayView)]) {
+        ASTextNode *textNode = textNodeForDisplayView((_ASDisplayView *)view);
+        if ([textNode isKindOfClass:%c(ASTextNode)]) {
+            [textNode setNeedsLayout];
+            [(ASDisplayNode *)textNode setNeedsDisplay];
+        }
+    }
+
+    for (UIView *subview in view.subviews)
+        invalidateLegacyTextNodesInView(subview);
+}
+
+static void invalidateVisibleLegacyTextNodes(void) {
+    if (!isLegacy)
+        return;
+
+    UIApplication *application = [UIApplication sharedApplication];
+#pragma clang diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    for (UIWindow *window in application.windows)
+#pragma clang diagnostic pop
+        invalidateLegacyTextNodesInView(window);
+}
+
+static void scheduleLegacyTextInvalidation(void) {
+    void (^invalidateBlock)(void) = ^{
+        invalidateVisibleLegacyTextNodes();
+    };
+
+    dispatch_async(dispatch_get_main_queue(), invalidateBlock);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), invalidateBlock);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), invalidateBlock);
+}
 
 #pragma mark - Spoof app version
 
@@ -92,6 +377,71 @@ BOOL isLegacy = NO;
     if ([appVersion compare:@"20.21.6" options:NSNumericSearch] == NSOrderedAscending)
         return @"20.21.6";
     return appVersion;
+}
+
+%end
+
+%hook YTPageStyleController
+
+- (void)setEffectivePageStyle:(NSInteger)pageStyle {
+    %orig(pageStyle);
+    if (!isLegacy) return;
+    scheduleLegacyTextInvalidation();
+}
+
+- (void)updatePageStyles {
+    %orig;
+    if (!isLegacy) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        refreshVisibleELMViews();
+        invalidateVisibleLegacyTextNodes();
+    });
+}
+
+%end
+
+%hook ASTextNode
+
+- (void)prepareAttributedString:(NSMutableAttributedString *)attributedString isForIntrinsicSize:(BOOL)isForIntrinsicSize {
+    %orig(attributedString, isForIntrinsicSize);
+    if (!isLegacy || attributedString.length == 0)
+        return;
+
+    applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(self, attributedString);
+}
+
+- (id)drawParametersForAsyncLayer:(id)layer {
+    id drawParameters = %orig(layer);
+    if (!isLegacy || ![drawParameters isKindOfClass:NSDictionary.class])
+        return drawParameters;
+
+    NSAttributedString *attributedText = [(NSDictionary *)drawParameters objectForKey:@"text"];
+    if (![attributedText isKindOfClass:NSAttributedString.class]
+        || !shouldForceLegacyFallbackTextColorForTextNode(self, attributedText)) {
+        return drawParameters;
+    }
+
+    NSMutableAttributedString *mutableAttributedText = [attributedText mutableCopy];
+    applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(self, mutableAttributedText);
+
+    NSMutableDictionary *mutableDrawParameters = [(NSDictionary *)drawParameters mutableCopy];
+    [mutableDrawParameters setObject:mutableAttributedText forKey:@"text"];
+
+    NSDictionary *updatedDrawParameters = [NSDictionary dictionaryWithDictionary:mutableDrawParameters];
+    return updatedDrawParameters;
+}
+
+%end
+
+%hook YTSKeyboardAwareElementsViewController
+
+- (void)pageStyleControllerPageStyleDidChange {
+    %orig;
+    if (!isLegacy) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        rebuildOpenElementsControllerIfNeeded(self);
+        invalidateVisibleLegacyTextNodes();
+    });
 }
 
 %end
@@ -412,6 +762,19 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 
 #pragma mark - Fix You tab avatar not displaying
 
+static YTIcon getIconType(YTIIcon *self) {
+    YTIcon iconType = self.iconType;
+    return iconType ?: [[[self.unknownFields getField:1].varintList yt_numberAtIndex:0] intValue];
+}
+
+static YTIcon normalizeIconType(YTIcon iconType) {
+    if (iconType == YT_TAB_HOME_CAIRO) return YT_TAB_HOME;
+    if (iconType == YT_TAB_SHORTS_CAIRO) return YT_TAB_SHORTS;
+    if (iconType == YT_CREATION_TAB_LARGE_CAIRO) return YT_CREATION_TAB_LARGE;
+    if (iconType == YT_TAB_SUBSCRIPTIONS_CAIRO) return YT_TAB_SUBSCRIPTIONS;
+    return iconType;
+}
+
 %hook YTHotConfig
 
 - (BOOL)isFixAvatarFlickersEnabled { return NO; }
@@ -473,9 +836,24 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 }
 
 - (void)setRenderer:(YTIPivotBarItemRenderer *)renderer {
+    YTIIcon *icon = renderer.icon;
+    BOOL isYouTab = [renderer.pivotIdentifier isEqualToString:@"FElibrary"];
+    if (icon.iconType == 0 && !isYouTab) {
+        YTIcon realIconType = getIconType(icon);
+        icon.iconType = normalizeIconType(realIconType);
+    }
     %orig;
-    if (!isLegacy || ![renderer.pivotIdentifier isEqualToString:@"FElibrary"]) return;
+    if (!isLegacy || !isYouTab) return;
     setYouTabIcon(self, renderer);
+}
+
+- (void)setIconOnlyItemRenderer:(YTIPivotBarIconOnlyItemRenderer *)iconOnlyItemRenderer {
+    YTIIcon *icon = iconOnlyItemRenderer.icon;
+    if (icon.iconType == 0) {
+        YTIcon realIconType = getIconType(icon);
+        icon.iconType = normalizeIconType(realIconType);
+    }
+    %orig;
 }
 
 %end
@@ -485,22 +863,13 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 %hook YTAppPivotBarItemStyle
 
 - (id)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color {
-    if (!isLegacy) return %orig;
-    if (iconType == YT_TAB_HOME_CAIRO) iconType = YT_TAB_HOME;
-    else if (iconType == YT_TAB_SHORTS_CAIRO) iconType = YT_TAB_SHORTS;
-    else if (iconType == YT_CREATION_TAB_LARGE_CAIRO) iconType = YT_CREATION_TAB_LARGE;
-    else if (iconType == YT_TAB_SUBSCRIPTIONS_CAIRO) iconType = YT_TAB_SUBSCRIPTIONS;
+    iconType = normalizeIconType(iconType);
     return %orig;
 }
 
 %end
 
 #pragma mark - Fix icons not displaying
-
-static YTIcon getIconType(YTIIcon *self) {
-    YTIcon iconType = self.iconType;
-    return iconType ?: [[[self.unknownFields getField:1].varintList yt_numberAtIndex:0] intValue];
-}
 
 %hook YTIIcon
 
@@ -1079,6 +1448,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
             });
         }
         if (ref) {
+            ELMMakeElementFunc = (id (*)(id, id))MSFindSymbol(ref, "_ELMMakeElement");
             YTPlaylistPageRefreshSupported = MSFindSymbol(ref, "_YTPlaylistPageRefreshSupported");
             if (YTPlaylistPageRefreshSupported) {
                 %init(PlaylistPageRefresh);
