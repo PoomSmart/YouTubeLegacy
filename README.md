@@ -13,6 +13,8 @@ _Only applicable to very old YouTube versions._
 
 **TL;DR:** Yes, if you are on iOS 11 - 15, or you are using the YouTube app version 20.23.3 or below.
 
+In early 2026, YouTube made server-side changes yet again. Now the tweak spoofs the YouTube version to 20.21.6 for anything lower.
+
 In early December 2025, YouTube made server-side changes that broke the home page and search page for older app versions. YouTube version 20.24.4 and higher support these new changes, while version 20.23.3 and lower do not. This tweak already spoofs the YouTube version to 19.14.2 for versions 17.09.1 and earlier. As a workaround for the new server-side changes, this spoofing is now also applied to versions lower than 20.24.4.
 
 ## Notes
