@@ -17,7 +17,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = YouTubeLegacy
 
-$(TWEAK_NAME)_FILES = Tweak.x
+$(TWEAK_NAME)_FILES = Tweak.x Appearance.x Compatibility.x Icons.x Menu.x Playback.x Shorts.x
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
