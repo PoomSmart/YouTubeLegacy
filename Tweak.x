@@ -11,6 +11,8 @@
 
 NSString *realAppVersion;
 BOOL isLegacy = NO;
+BOOL isYouTube18OrNewer = NO;
+BOOL isYouTube19OrNewer = NO;
 static id (*ELMMakeElementFunc)(id data, id context) = NULL;
 
 static ELMNodeController *nodeControllerForELMView(ELMView *elmView) {
@@ -228,6 +230,10 @@ NSBundle *TweakBundle(void) {
         realAppVersion = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
         if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
         isLegacy = YES;
+        if ([realAppVersion compare:@"18.00.0" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTube18OrNewer = YES;
+        if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTube19OrNewer = YES;
         BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
             || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
         if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {

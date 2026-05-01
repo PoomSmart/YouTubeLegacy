@@ -17,6 +17,8 @@
 
 extern NSString *realAppVersion;
 extern BOOL isLegacy;
+extern BOOL isYouTube18OrNewer;
+extern BOOL isYouTube19OrNewer;
 
 void YTLRebuildOpenElementsControllerIfNeeded(id controller);
 NSBundle *TweakBundle(void);

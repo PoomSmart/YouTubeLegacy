@@ -38,7 +38,7 @@ static YTIcon normalizeIconType(YTIcon iconType) {
 %hook YTAppImageStyle
 
 - (UIImage *)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color useNewIcons:(BOOL)useNewIcons selected:(BOOL)selected {
-    if (isLegacy && iconType == YT_ACCOUNT_CIRCLE)
+    if (!isYouTube18OrNewer && iconType == YT_ACCOUNT_CIRCLE)
         return [%c(YTUIResources) iconAccountCircle];
     return %orig;
 }
@@ -78,7 +78,7 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 
 - (void)updateTitleAndIcons {
     %orig;
-    if (!isLegacy || ![self.renderer.pivotIdentifier isEqualToString:@"FElibrary"] || [self respondsToSelector:@selector(setupIconsAndTitles)]) return;
+    if (isYouTube18OrNewer || ![self.renderer.pivotIdentifier isEqualToString:@"FElibrary"] || [self respondsToSelector:@selector(setupIconsAndTitles)]) return;
     setYouTabIcon(self, self.renderer);
 }
 
@@ -90,7 +90,7 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
         icon.iconType = normalizeIconType(realIconType);
     }
     %orig;
-    if (!isLegacy || !isYouTab) return;
+    if (isYouTube18OrNewer || !isYouTab) return;
     setYouTabIcon(self, renderer);
 }
 
@@ -137,7 +137,7 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 }
 
 - (UIImage *)iconImageForContextMenu {
-    if (!isLegacy) return %orig;
+    if (isYouTube19OrNewer) return %orig;
     switch (getIconType(self)) {
         case YT_UNSUBSCRIBE:
         case YT_X_CIRCLE:
@@ -157,7 +157,7 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 %hook YTGridVideoView
 
 - (void)setEntry:(id)entry {
-    if (isLegacy && [entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
+    if (!isYouTube18OrNewer && [entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
         YTICompactVideoRenderer *videoRenderer = entry;
         YTIButtonRenderer *buttonRenderer = [videoRenderer.endSwipeContentsArray firstObject].buttonRenderer;
         if (buttonRenderer.style == STYLE_BLACK_FILLED)

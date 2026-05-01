@@ -53,6 +53,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
     shareButtonRenderer.buttonRenderer = shareButton;
     renderer.shareButton = shareButtonRenderer;
 
+    if (isYouTube19OrNewer) return;
     NSString *rendererDescription = [renderer description];
     NSRange channelBarRange = [rendererDescription rangeOfString:@"reel_channel_bar.eml"];
     if (channelBarRange.location != NSNotFound) {
@@ -112,7 +113,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 %hook YTReelWatchHeaderView
 
 - (void)setHeaderRenderer:(YTIReelPlayerHeaderRenderer *)renderer {
-    if (!isLegacy) {
+    if (isYouTube19OrNewer) {
         %orig;
         return;
     }

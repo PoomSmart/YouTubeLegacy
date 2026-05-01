@@ -159,7 +159,7 @@ static void overrideMenuItem(NSMutableArray <YTIMenuItemSupportedRenderers *> *r
 %hook YTMenuController
 
 - (NSMutableArray <YTActionSheetAction *> *)actionsForRenderers:(NSMutableArray <YTIMenuItemSupportedRenderers *> *)renderers fromView:(UIView *)view entry:(id)entry shouldLogItems:(BOOL)shouldLogItems firstResponder:(id)firstResponder {
-    if (!isLegacy) return %orig;
+    if (isYouTube18OrNewer) return %orig;
     HBLogDebug(@"actionsForRenderers: %@", renderers);
     HBLogDebug(@"view: %@", view);
     HBLogDebug(@"entry: %@", entry);
@@ -211,7 +211,7 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 %hook ELMTouchCommandPropertiesHandler
 
 - (void)handleTap {
-    if (!isLegacy) {
+    if (isYouTube18OrNewer) {
         %orig;
         return;
     }
@@ -251,7 +251,7 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
 
 - (void)setupClientBinding {
     %orig;
-    if (!isLegacy) return;
+    if (isYouTube18OrNewer) return;
     id entry = [self entry];
     if ([entry isKindOfClass:%c(YTICompactVideoRenderer)]) {
         YTICompactVideoRenderer *videoRenderer = (YTICompactVideoRenderer *)entry;
