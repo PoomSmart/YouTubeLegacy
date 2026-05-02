@@ -302,7 +302,7 @@ static void scheduleLegacyAppearanceRefresh(void) {
 
 - (id)initWithParentResponder:(id)parentResponder {
     self = %orig;
-    if (isLegacy)
+    if (!isYouTube18OrNewer)
         [[%c(ELMNodeFactory) sharedInstance] registerNodeClass:%c(ELMTextNode2) forTypeExtension:525000000];
     return self;
 }

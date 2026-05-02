@@ -6,7 +6,7 @@
 #import <YouTubeHeader/YTIShelfRenderer.h>
 #import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 
-#pragma mark - Fix app crash on launch
+#pragma mark - Fix possible app crash on launch
 
 %hook SRLRegistry
 

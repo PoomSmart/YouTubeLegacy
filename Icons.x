@@ -109,8 +109,14 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 
 %hook YTAppPivotBarItemStyle
 
-- (id)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color {
+- (UIImage *)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color {
     iconType = normalizeIconType(iconType);
+    return %orig;
+}
+
+- (UIImage *)pivotBarItemIconImageWithIconType:(YTIcon)iconType color:(UIColor *)color useNewIcons:(BOOL)useNewIcons selected:(BOOL)selected {
+    if (!isYouTube20OrNewer)
+        iconType = normalizeIconType(iconType);
     return %orig;
 }
 
@@ -137,13 +143,15 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 }
 
 - (UIImage *)iconImageForContextMenu {
-    if (isYouTube19OrNewer) return %orig;
+    if (isYouTube20OrNewer) return %orig;
     switch (getIconType(self)) {
         case YT_UNSUBSCRIBE:
         case YT_X_CIRCLE:
             return [%c(YTUIResources) xCircleOutline];
         case YT_BOOKMARK_BORDER:
             return [self iconImageWithColor:nil];
+        case YT_PERSON_MINUS:
+            return [%c(YTUIResources) actionsheetUnsubscribeImage];
         default:
             break;
     }
