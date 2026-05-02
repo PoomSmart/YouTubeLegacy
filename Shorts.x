@@ -10,7 +10,7 @@
 %hook YTReelWatchPlaybackOverlayView
 
 - (void)setActionBarElementRenderer:(id)renderer {
-    if (!isLegacy) %orig;
+    if (isYouTube20OrNewer) %orig;
 }
 
 %end
@@ -75,7 +75,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 %hook YTReelContentView
 
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer {
-    if (!isLegacy) {
+    if (isYouTube20OrNewer) {
         %orig;
         return;
     }
@@ -84,7 +84,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 }
 
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer isFullOverlayResponse:(BOOL)isFullOverlayResponse {
-    if (!isLegacy) {
+    if (isYouTube19OrNewer) {
         %orig;
         return;
     }
@@ -93,7 +93,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 }
 
 - (void)showComments {
-    if (!isLegacy) {
+    if (isYouTube20OrNewer) {
         %orig;
         return;
     }

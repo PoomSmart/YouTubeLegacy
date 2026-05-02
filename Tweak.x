@@ -233,6 +233,8 @@ NSBundle *TweakBundle(void) {
         isLegacy = YES;
         if ([realAppVersion compare:@"18.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube18OrNewer = YES;
+        if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTube19OrNewer = YES;
         BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
             || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
         if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {
