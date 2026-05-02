@@ -233,10 +233,6 @@ NSBundle *TweakBundle(void) {
         isLegacy = YES;
         if ([realAppVersion compare:@"18.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube18OrNewer = YES;
-        if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
-            isYouTube19OrNewer = YES;
-        if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
-            isYouTube20OrNewer = YES;
         BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
             || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
         if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {
@@ -278,6 +274,10 @@ NSBundle *TweakBundle(void) {
     } else {
         realAppVersion = mainVersion;
         if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
+        if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTube19OrNewer = YES;
+        if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTube20OrNewer = YES;
     }
     if (!IS_IOS_OR_NEWER(iOS_15_0)) {
         %init(Spoofing);
