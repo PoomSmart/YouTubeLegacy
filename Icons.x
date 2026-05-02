@@ -1,5 +1,6 @@
 #import "TweakHeader.h"
 #import <HBLog.h>
+#import <YouTubeHeader/GPBUnknownFields.h>
 #import <YouTubeHeader/NSArray+YouTube.h>
 #import <YouTubeHeader/YTICompactVideoRenderer.h>
 #import <YouTubeHeader/YTIPivotBarIconOnlyItemRenderer.h>
@@ -11,7 +12,11 @@
 
 static YTIcon getIconType(YTIIcon *self) {
     YTIcon iconType = self.iconType;
-    return iconType ?: [[[self.unknownFields getField:1].varintList yt_numberAtIndex:0] intValue];
+    if (iconType) return iconType;
+    if ([self respondsToSelector:@selector(unknownFields)])
+        return [[[self.unknownFields getField:1].varintList yt_numberAtIndex:0] intValue];
+    GPBUnknownFields *fields = [[%c(GPBUnknownFields) alloc] initFromMessage:self];
+    return [[[[fields fields:1] firstObject].varintList yt_numberAtIndex:0] intValue];
 }
 
 static YTIcon normalizeIconType(YTIcon iconType) {

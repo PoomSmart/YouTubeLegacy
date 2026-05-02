@@ -14,6 +14,7 @@ BOOL shouldEnableTweak = YES;
 BOOL isLegacy = NO;
 BOOL isYouTube18OrNewer = NO;
 BOOL isYouTube19OrNewer = NO;
+BOOL isYouTubeLate19OrNewer = NO;
 BOOL isYouTube20OrNewer = NO;
 static id (*ELMMakeElementFunc)(id data, id context) = NULL;
 
@@ -276,8 +277,9 @@ NSBundle *TweakBundle(void) {
     } else {
         realAppVersion = mainVersion;
         isYouTube18OrNewer = YES;
-        if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
-            isYouTube19OrNewer = YES;
+        isYouTube19OrNewer = YES;
+        if ([realAppVersion compare:@"19.49.7" options:NSNumericSearch] != NSOrderedAscending)
+            isYouTubeLate19OrNewer = YES;
         if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube20OrNewer = YES;
         if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) {

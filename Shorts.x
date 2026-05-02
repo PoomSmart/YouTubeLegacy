@@ -10,7 +10,7 @@
 %hook YTReelWatchPlaybackOverlayView
 
 - (void)setActionBarElementRenderer:(id)renderer {
-    if (isYouTube20OrNewer) %orig;
+    if (isYouTubeLate19OrNewer) %orig;
 }
 
 %end
@@ -84,7 +84,7 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 }
 
 - (void)setOverlayRenderer:(YTIReelPlayerOverlayRenderer *)renderer isFullOverlayResponse:(BOOL)isFullOverlayResponse {
-    if (isYouTube19OrNewer) {
+    if (isYouTube20OrNewer) {
         %orig;
         return;
     }

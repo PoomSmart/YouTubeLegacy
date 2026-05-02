@@ -20,6 +20,7 @@ extern BOOL shouldEnableTweak;
 extern BOOL isLegacy;
 extern BOOL isYouTube18OrNewer;
 extern BOOL isYouTube19OrNewer;
+extern BOOL isYouTubeLate19OrNewer;
 extern BOOL isYouTube20OrNewer;
 
 void YTLRebuildOpenElementsControllerIfNeeded(id controller);
