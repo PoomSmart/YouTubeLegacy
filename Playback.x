@@ -120,3 +120,9 @@ static YTICommand *getWatchEndpoint(YTICommand *command) {
 }
 
 %end
+
+%ctor {
+    if (!shouldEnableTweak) return;
+    %init;
+}
+

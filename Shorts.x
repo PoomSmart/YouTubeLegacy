@@ -155,3 +155,8 @@ static void setOverlayRenderer(YTReelContentView *self, YTIReelPlayerOverlayRend
 - (BOOL)shouldPresentModally { return NO; }
 
 %end
+
+%ctor {
+    if (!shouldEnableTweak) return;
+    %init;
+}

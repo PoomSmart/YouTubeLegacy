@@ -10,6 +10,7 @@
 #import <YouTubeHeader/YTPageStyleController.h>
 
 NSString *realAppVersion;
+BOOL shouldEnableTweak = YES;
 BOOL isLegacy = NO;
 BOOL isYouTube18OrNewer = NO;
 BOOL isYouTube19OrNewer = NO;
@@ -229,7 +230,6 @@ NSBundle *TweakBundle(void) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (moduleFrameworkBundle) {
         realAppVersion = [moduleFrameworkBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-        if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
         isLegacy = YES;
         if ([realAppVersion compare:@"18.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube18OrNewer = YES;
@@ -275,12 +275,15 @@ NSBundle *TweakBundle(void) {
         }
     } else {
         realAppVersion = mainVersion;
-        if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
         isYouTube18OrNewer = YES;
         if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube19OrNewer = YES;
         if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube20OrNewer = YES;
+        if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) {
+            shouldEnableTweak = NO;
+            return;
+        }
     }
     if (!IS_IOS_OR_NEWER(iOS_15_0)) {
         %init(Spoofing);

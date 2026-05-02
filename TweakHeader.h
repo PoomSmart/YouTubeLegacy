@@ -16,6 +16,7 @@
 #define LOC(x) _LOC(tweakBundle, x)
 
 extern NSString *realAppVersion;
+extern BOOL shouldEnableTweak;
 extern BOOL isLegacy;
 extern BOOL isYouTube18OrNewer;
 extern BOOL isYouTube19OrNewer;

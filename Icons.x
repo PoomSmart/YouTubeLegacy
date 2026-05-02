@@ -175,3 +175,8 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 }
 
 %end
+
+%ctor {
+    if (!shouldEnableTweak) return;
+    %init;
+}

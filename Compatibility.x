@@ -121,3 +121,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 
 %end
+
+%ctor {
+    if (!shouldEnableTweak) return;
+    %init;
+}

@@ -308,3 +308,8 @@ static void scheduleLegacyAppearanceRefresh(void) {
 }
 
 %end
+
+%ctor {
+    if (!shouldEnableTweak) return;
+    %init;
+}
