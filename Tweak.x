@@ -274,6 +274,7 @@ NSBundle *TweakBundle(void) {
     } else {
         realAppVersion = mainVersion;
         if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) return;
+        isYouTube18OrNewer = YES;
         if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube19OrNewer = YES;
         if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
