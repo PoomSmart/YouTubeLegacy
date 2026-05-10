@@ -14,7 +14,8 @@ BOOL shouldEnableTweak = YES;
 BOOL isLegacy = NO;
 BOOL isYouTube18OrNewer = NO;
 BOOL isYouTube19OrNewer = NO;
-BOOL isYouTubeLate19OrNewer = NO;
+BOOL hasElementObserverSupport = NO;
+BOOL hasElementShortsOverlayButtonsSupport = NO;
 BOOL isYouTube20OrNewer = NO;
 static id (*ELMMakeElementFunc)(id data, id context) = NULL;
 
@@ -161,64 +162,6 @@ NSBundle *TweakBundle(void) {
 
 %end
 
-#pragma mark - Debug
-
-// static void debugURLRequest(NSMutableURLRequest *request, NSString *method) {
-//     HBLogInfo(@"YTL %@: %@", method, request);
-// }
-
-// %hook YTAccountScopedInnerTubeServiceImpl
-
-// - (NSMutableURLRequest *)URLRequestWithRequest:(id)arg1 method:(NSString *)method timeoutInterval:(NSTimeInterval)arg3 {
-//     NSMutableURLRequest *request = %orig;
-//     debugURLRequest(request, method);
-//     return request;
-// }
-
-// - (NSMutableURLRequest *)URLRequestWithRequest:(id)arg1 method:(NSString *)method timeoutInterval:(NSTimeInterval)arg3 cacheKeysForStreamingResponsesFoundInCache:(id)arg4 {
-//     NSMutableURLRequest *request = %orig;
-//     debugURLRequest(request, method);
-//     return request;
-// }
-
-// %end
-
-// %hook YTELMLogger
-
-// - (void)logErrorEvent:(id)event {
-//     HBLogInfo(@"logErrorEvent: %@", event);
-//     %orig;
-// }
-
-// %end
-
-// %hook YTELMErrorHandler
-
-// - (void)didNotFindTemplate {
-//     HBLogInfo(@"didNotFindTemplate");
-//     %orig;
-// }
-
-// %end
-
-// %hook YTColdConfig
-
-// - (BOOL)elementsLogNilMaterializedElement {
-//     return YES;
-// }
-
-// - (BOOL)elementsSharedComponentLogNilMaterializedElement {
-//     return YES;
-// }
-
-// %end
-
-// %hook YTSafeModeController
-
-// - (void)setupAndCheckForCrashLoop {}
-
-// %end
-
 %ctor {
     NSString *bundlePath = [NSString stringWithFormat:@"%@/Frameworks/Module_Framework.framework", NSBundle.mainBundle.bundlePath];
     dlopen([bundlePath UTF8String], RTLD_NOW);
@@ -236,6 +179,8 @@ NSBundle *TweakBundle(void) {
             isYouTube18OrNewer = YES;
         if ([realAppVersion compare:@"19.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube19OrNewer = YES;
+        if ([realAppVersion compare:@"19.16.3" options:NSNumericSearch] != NSOrderedAscending)
+            hasElementObserverSupport = YES;
         BOOL infoPlistLikelyModified = [realAppVersion compare:mainVersion options:NSNumericSearch] != NSOrderedSame
             || [realAppVersion compare:mainShortVersion options:NSNumericSearch] != NSOrderedSame;
         if (infoPlistLikelyModified && ![defaults boolForKey:DidShowInformationAlert2Key]) {
@@ -274,12 +219,13 @@ NSBundle *TweakBundle(void) {
                 %init(PlaylistPageRefresh);
             }
         }
-    } else {
+    } else { // 19.24.2+
         realAppVersion = mainVersion;
         isYouTube18OrNewer = YES;
         isYouTube19OrNewer = YES;
-        if ([realAppVersion compare:@"19.49.7" options:NSNumericSearch] != NSOrderedAscending)
-            isYouTubeLate19OrNewer = YES;
+        if ([realAppVersion compare:@"19.45.4" options:NSNumericSearch] != NSOrderedAscending)
+            hasElementShortsOverlayButtonsSupport = YES;
+        hasElementObserverSupport = YES;
         if ([realAppVersion compare:@"20.00.0" options:NSNumericSearch] != NSOrderedAscending)
             isYouTube20OrNewer = YES;
         if ([realAppVersion compare:@"20.24.4" options:NSNumericSearch] != NSOrderedAscending) {

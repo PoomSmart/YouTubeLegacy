@@ -4,164 +4,38 @@
 #import <YouTubeHeader/ASEditableTextNode.h>
 #import <YouTubeHeader/ELMNodeFactory.h>
 #import <YouTubeHeader/ELMTextNode.h>
-#import <YouTubeHeader/YTColorPalette.h>
 #import <YouTubeHeader/YTPageStyleController.h>
 
 @interface ELMTextNode2 : ELMTextNode
 - (BOOL)isLikeDislikeNode;
 @end
 
-static NSString *const YTLLegacyFallbackColorAttributeName = @"YTL_LegacyFallbackColor";
+static NSString *const YTLLegacyELMContentSizeDidChangeNotification = @"ELMContentSizeCategoryDidChangeNotification";
 
-static BOOL attributedStringHasForegroundColor(NSAttributedString *attributedString) {
-    if (attributedString.length == 0)
-        return NO;
-    __block BOOL hasForegroundColor = NO;
-    [attributedString enumerateAttribute:NSForegroundColorAttributeName
-                                 inRange:NSMakeRange(0, attributedString.length)
-                                 options:0
-                              usingBlock:^(id value, NSRange range, BOOL *stop) {
-        if (value != nil) {
-            hasForegroundColor = YES;
-            *stop = YES;
-        }
-    }];
-    return hasForegroundColor;
+static UIColor *legacyForcedTextColor(void) {
+    NSInteger pageStyle = [%c(YTPageStyleController) pageStyle];
+    if (pageStyle == 1)
+        return UIColor.whiteColor;
+    return UIColor.blackColor;
 }
 
-static BOOL legacyTextColorsEqual(UIColor *firstColor, UIColor *secondColor) {
-    if (firstColor == secondColor)
-        return YES;
-    if (!firstColor || !secondColor)
+static BOOL legacyShouldOverrideTextColorForNode(ASTextNode *textNode, NSAttributedString *attributedString) {
+    if (hasElementObserverSupport)
         return NO;
-    if ([firstColor isEqual:secondColor])
-        return YES;
-    return CGColorEqualToColor(firstColor.CGColor, secondColor.CGColor);
+    if (!textNode || !attributedString || attributedString.length == 0)
+        return NO;
+
+    return [textNode isKindOfClass:%c(ELMTextNode)] || [textNode isKindOfClass:%c(ASEditableTextNode)];
 }
 
-static NSInteger currentLegacyPageStyle(void) {
-    return [%c(YTPageStyleController) pageStyle];
-}
-
-static BOOL attributedStringHasLegacyFallbackColor(NSAttributedString *attributedString) {
-    if (attributedString.length == 0)
-        return NO;
-    __block BOOL hasLegacyFallbackColor = NO;
-    [attributedString enumerateAttribute:YTLLegacyFallbackColorAttributeName
-                                 inRange:NSMakeRange(0, attributedString.length)
-                                 options:0
-                              usingBlock:^(id value, NSRange range, BOOL *stop) {
-        if (value != nil) {
-            hasLegacyFallbackColor = YES;
-            *stop = YES;
-        }
-    }];
-    return hasLegacyFallbackColor;
-}
-
-static BOOL attributedStringHasSingleForegroundColor(NSAttributedString *attributedString, UIColor **foregroundColor) {
-    if (foregroundColor)
-        *foregroundColor = nil;
-    if (attributedString.length == 0)
-        return NO;
-
-    __block UIColor *resolvedColor = nil;
-    __block BOOL didInspectFirstRange = NO;
-    __block BOOL hasSingleForegroundColor = YES;
-    [attributedString enumerateAttribute:NSForegroundColorAttributeName
-                                 inRange:NSMakeRange(0, attributedString.length)
-                                 options:0
-                              usingBlock:^(id value, NSRange range, BOOL *stop) {
-        UIColor *currentColor = [value isKindOfClass:UIColor.class] ? value : nil;
-        if (!didInspectFirstRange) {
-            resolvedColor = currentColor;
-            didInspectFirstRange = YES;
-            return;
-        }
-
-        if ((resolvedColor == nil) != (currentColor == nil) || (resolvedColor && !legacyTextColorsEqual(resolvedColor, currentColor))) {
-            hasSingleForegroundColor = NO;
-            *stop = YES;
-        }
-    }];
-
-    if (!hasSingleForegroundColor)
-        return NO;
-
-    if (foregroundColor)
-        *foregroundColor = resolvedColor;
-    return resolvedColor != nil;
-}
-
-static UIColor *legacyFallbackTextColorForPageStyle(NSInteger pageStyle) {
-    UIColor *fallbackTextColor = nil;
-    id legacyPaletteClass = %c(YTColorPalette);
-    id legacyPalette = nil;
-    legacyPalette = [legacyPaletteClass colorPaletteForPageStyle:pageStyle];
-    if (!legacyPalette && pageStyle == 1)
-        legacyPalette = [legacyPaletteClass darkPalette];
-    if (!legacyPalette && pageStyle != 1)
-        legacyPalette = [legacyPaletteClass lightPalette];
-
-    if (pageStyle == 1) {
-        fallbackTextColor = [legacyPalette textPrimary];
-        if (!fallbackTextColor)
-            fallbackTextColor = [legacyPalette overlayTextPrimary];
-        if (!fallbackTextColor)
-            fallbackTextColor = [legacyPalette textPrimaryInverse];
-        if (!fallbackTextColor)
-            fallbackTextColor = [legacyPalette staticBrandWhite];
-        if (!fallbackTextColor)
-            fallbackTextColor = UIColor.whiteColor;
-    } else {
-        fallbackTextColor = [legacyPalette staticBrandBlack];
-        if (!fallbackTextColor)
-            fallbackTextColor = [legacyPalette textPrimary];
-        if (!fallbackTextColor)
-            fallbackTextColor = [legacyPalette overlayTextPrimary];
-        if (!fallbackTextColor)
-            fallbackTextColor = UIColor.blackColor;
-    }
-
-    return fallbackTextColor;
-}
-
-static BOOL shouldForceLegacyFallbackTextColorForTextNode(ASTextNode *textNode, NSAttributedString *attributedString) {
-    if (!isLegacy || attributedString.length == 0)
-        return NO;
-    if (attributedStringHasLegacyFallbackColor(attributedString))
-        return YES;
-    if (!attributedStringHasForegroundColor(attributedString))
-        return YES;
-
-    if (![textNode isKindOfClass:%c(ELMTextNode)] && ![textNode isKindOfClass:%c(ASEditableTextNode)])
-        return NO;
-
-    UIColor *resolvedColor = nil;
-    if (!attributedStringHasSingleForegroundColor(attributedString, &resolvedColor) || !resolvedColor)
-        return NO;
-
-    UIColor *darkThemeColor = legacyFallbackTextColorForPageStyle(1);
-    UIColor *lightThemeColor = legacyFallbackTextColorForPageStyle(0);
-    return legacyTextColorsEqual(resolvedColor, darkThemeColor)
-        || legacyTextColorsEqual(resolvedColor, lightThemeColor)
-        || legacyTextColorsEqual(resolvedColor, UIColor.whiteColor)
-        || legacyTextColorsEqual(resolvedColor, UIColor.blackColor);
-}
-
-static void applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(ASTextNode *textNode, NSMutableAttributedString *attributedString) {
-    if (!shouldForceLegacyFallbackTextColorForTextNode(textNode, attributedString))
+static void legacyOverrideTextColorInAttributedString(ASTextNode *textNode, NSMutableAttributedString *attributedString) {
+    if (!legacyShouldOverrideTextColorForNode(textNode, attributedString))
         return;
 
-    [attributedString removeAttribute:NSForegroundColorAttributeName range:NSMakeRange(0, attributedString.length)];
-    [attributedString removeAttribute:YTLLegacyFallbackColorAttributeName range:NSMakeRange(0, attributedString.length)];
-
-    UIColor *fallbackTextColor = legacyFallbackTextColorForPageStyle(currentLegacyPageStyle());
+    [attributedString removeAttribute:NSForegroundColorAttributeName
+                                range:NSMakeRange(0, attributedString.length)];
     [attributedString addAttribute:NSForegroundColorAttributeName
-                             value:fallbackTextColor
-                             range:NSMakeRange(0, attributedString.length)];
-    [attributedString addAttribute:YTLLegacyFallbackColorAttributeName
-                             value:@YES
+                             value:legacyForcedTextColor()
                              range:NSMakeRange(0, attributedString.length)];
 }
 
@@ -192,8 +66,7 @@ static void refreshLegacyAppearanceNodesInView(UIView *view) {
 }
 
 static void refreshVisibleLegacyAppearanceNodes(void) {
-    if (!isLegacy)
-        return;
+    if (hasElementObserverSupport) return;
 
     UIApplication *application = [UIApplication sharedApplication];
 #pragma clang diagnostic push
@@ -203,8 +76,18 @@ static void refreshVisibleLegacyAppearanceNodes(void) {
         refreshLegacyAppearanceNodesInView(window);
 }
 
-static void scheduleLegacyAppearanceRefresh(void) {
+static void notifyLegacyELMTextNodesForThemeRefresh(void) {
+    if (hasElementObserverSupport)
+        return;
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:YTLLegacyELMContentSizeDidChangeNotification object:nil];
+}
+
+static void scheduleLegacyTextNodeThemeRefresh(void) {
+    if (hasElementObserverSupport) return;
+
     void (^refreshBlock)(void) = ^{
+        notifyLegacyELMTextNodesForThemeRefresh();
         refreshVisibleLegacyAppearanceNodes();
     };
 
@@ -215,53 +98,48 @@ static void scheduleLegacyAppearanceRefresh(void) {
 
 #pragma mark - Refresh legacy appearance
 
-%hook YTPageStyleController
-
-- (void)setEffectivePageStyle:(NSInteger)pageStyle {
-    %orig(pageStyle);
-    if (!isLegacy) return;
-    scheduleLegacyAppearanceRefresh();
-}
-
-- (void)updatePageStyles {
-    %orig;
-    if (!isLegacy) return;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        refreshVisibleLegacyAppearanceNodes();
-    });
-}
-
-%end
-
 %hook ASTextNode
 
 - (void)prepareAttributedString:(NSMutableAttributedString *)attributedString isForIntrinsicSize:(BOOL)isForIntrinsicSize {
     %orig(attributedString, isForIntrinsicSize);
-    if (!isLegacy || attributedString.length == 0)
-        return;
-
-    applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(self, attributedString);
+    legacyOverrideTextColorInAttributedString(self, attributedString);
 }
 
 - (id)drawParametersForAsyncLayer:(id)layer {
     id drawParameters = %orig(layer);
-    if (!isLegacy || ![drawParameters isKindOfClass:NSDictionary.class])
+    if (hasElementObserverSupport)
+        return drawParameters;
+    if (![drawParameters isKindOfClass:NSDictionary.class])
         return drawParameters;
 
     NSAttributedString *attributedText = [(NSDictionary *)drawParameters objectForKey:@"text"];
-    if (![attributedText isKindOfClass:NSAttributedString.class]
-        || !shouldForceLegacyFallbackTextColorForTextNode(self, attributedText)) {
+    if (![attributedText isKindOfClass:NSAttributedString.class])
         return drawParameters;
-    }
+    if (!legacyShouldOverrideTextColorForNode(self, attributedText))
+        return drawParameters;
 
     NSMutableAttributedString *mutableAttributedText = [attributedText mutableCopy];
-    applyLegacyFallbackTextColorToMutableAttributedStringForTextNodeIfNeeded(self, mutableAttributedText);
+    legacyOverrideTextColorInAttributedString(self, mutableAttributedText);
 
     NSMutableDictionary *mutableDrawParameters = [(NSDictionary *)drawParameters mutableCopy];
     [mutableDrawParameters setObject:mutableAttributedText forKey:@"text"];
+    return [NSDictionary dictionaryWithDictionary:mutableDrawParameters];
+}
 
-    NSDictionary *updatedDrawParameters = [NSDictionary dictionaryWithDictionary:mutableDrawParameters];
-    return updatedDrawParameters;
+%end
+
+%hook YTPageStyleController
+
+- (void)setEffectivePageStyle:(NSInteger)pageStyle {
+    %orig(pageStyle);
+    if (hasElementObserverSupport) return;
+    scheduleLegacyTextNodeThemeRefresh();
+}
+
+- (void)updatePageStyles {
+    %orig;
+    if (hasElementObserverSupport) return;
+    scheduleLegacyTextNodeThemeRefresh();
 }
 
 %end
@@ -270,8 +148,8 @@ static void scheduleLegacyAppearanceRefresh(void) {
 
 - (void)pageStyleControllerPageStyleDidChange {
     %orig;
-    if (!isLegacy) return;
-    scheduleLegacyAppearanceRefresh();
+    if (hasElementObserverSupport) return;
+    scheduleLegacyTextNodeThemeRefresh();
     dispatch_async(dispatch_get_main_queue(), ^{
         YTLRebuildOpenElementsControllerIfNeeded(self);
     });

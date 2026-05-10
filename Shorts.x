@@ -10,7 +10,7 @@
 %hook YTReelWatchPlaybackOverlayView
 
 - (void)setActionBarElementRenderer:(id)renderer {
-    if (isYouTubeLate19OrNewer) %orig;
+    if (hasElementShortsOverlayButtonsSupport) %orig;
 }
 
 %end
