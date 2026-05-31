@@ -21,6 +21,8 @@ In early December 2025, YouTube made server-side changes that broke the home pag
 
 - CydiaSubstrate is usually broken on iOS 12 jailbreaks. This can cause false positives where the tweak is not working as expected. Consider switching the tweak injection library to Substitute or Libhooker instead. Alternatively, switch to a different jailbreak that has Substitute or Libhooker built-in.
 - You should not modify `Info.plist` of YouTube app while using this tweak as it may cause the tweak to not work properly.
+- iOS 13 and below (YouTube app up to 17.40.5) may be approaching end-of-life for regular playback. Newer Proof-of-Origin (PoToken) flows depend on Apple App Attest, which is not available/reliable on these legacy environments.
+- If you have YouTube Premium, playback can still be less affected because PoToken enforcement is often relaxed for Premium streaming paths.
 
 ## Tips
 
