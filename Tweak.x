@@ -131,7 +131,7 @@ NSBundle *TweakBundle(void) {
 %hook UIDevice
 
 - (NSString *)systemVersion {
-    return @"15.8.7";
+    return @"15.8.8";
 }
 
 %end
@@ -142,7 +142,7 @@ NSBundle *TweakBundle(void) {
     NSOperatingSystemVersion version;
     version.majorVersion = 15;
     version.minorVersion = 8;
-    version.patchVersion = 7;
+    version.patchVersion = 8;
     return version;
 }
 

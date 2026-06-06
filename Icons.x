@@ -2,6 +2,7 @@
 #import <HBLog.h>
 #import <YouTubeHeader/GPBUnknownFields.h>
 #import <YouTubeHeader/NSArray+YouTube.h>
+#import <YouTubeHeader/QTMIcon.h>
 #import <YouTubeHeader/YTICompactVideoRenderer.h>
 #import <YouTubeHeader/YTIPivotBarIconOnlyItemRenderer.h>
 #import <YouTubeHeader/YTIPivotBarItemRenderer.h>
@@ -132,18 +133,21 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 %hook YTIIcon
 
 - (UIImage *)iconImageWithColor:(UIColor *)color {
-    if (!isLegacy) return %orig;
+    UIImage *image = %orig;
+    if (!isLegacy) return image;
     YTIcon iconType = getIconType(self);
     if (iconType == YT_CLAPPERBOARD)
         self.iconType = YT_MOVIES;
     else if (iconType == YT_SELL)
         self.iconType = YT_PURCHASES;
-    else if (iconType == YT_TAB_ACTIVITY_CAIRO)
+    else if (iconType == YT_TAB_ACTIVITY_CAIRO && image == nil)
         self.iconType = YT_TAB_ACTIVITY;
-    else if (iconType == YT_SETTINGS_CAIRO)
+    else if (iconType == YT_SETTINGS_CAIRO && image == nil)
         self.iconType = YT_SETTINGS;
-    else if (iconType == YT_SEARCH_CAIRO)
+    else if (iconType == YT_SEARCH_CAIRO && image == nil)
         self.iconType = YT_SEARCH;
+    else if (iconType == YT_FILL_AUDIO_16)
+        self.iconType = YT_AUDIO;
     return %orig;
 }
 
@@ -161,6 +165,27 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
             break;
     }
     return %orig;
+}
+
+%end
+
+%hook YTELMResourceLoader
+
+- (UIImage *)imageWithName:(NSString *)name color:(UIColor *)color bundleId:(NSString *)bundleId {
+    UIImage *image = %orig;
+    if (!isLegacy) return image;
+    if (image == nil) {
+        HBLogDebug(@"Trying to load image with name: %@, bundleId: %@", name, bundleId);
+        @try {
+            if ([name isEqualToString:@"youtube_fill/audio_16pt"])
+                return [%c(YTUIResources) audioFillWithColor:color];
+            if ([name isEqualToString:@"youtube_outline/moon_z_24pt"])
+                return [%c(QTMIcon) imageWithName:@"ic_access_time" color:color];
+        } @catch (id ex) {
+            HBLogError(@"Error loading image: %@", ex);
+        }
+    }
+    return image;
 }
 
 %end
