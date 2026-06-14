@@ -25,6 +25,7 @@ static YTIcon normalizeIconType(YTIcon iconType) {
     if (iconType == YT_TAB_SHORTS_CAIRO) return YT_TAB_SHORTS;
     if (iconType == YT_CREATION_TAB_LARGE_CAIRO) return YT_CREATION_TAB_LARGE;
     if (iconType == YT_TAB_SUBSCRIPTIONS_CAIRO) return YT_TAB_SUBSCRIPTIONS;
+    if (iconType == YT_ACCOUNT_CIRCLE_CAIRO) return YT_ACCOUNT_CIRCLE;
     return iconType;
 }
 
@@ -91,7 +92,7 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 - (void)setRenderer:(YTIPivotBarItemRenderer *)renderer {
     YTIIcon *icon = renderer.icon;
     BOOL isYouTab = [renderer.pivotIdentifier isEqualToString:@"FElibrary"];
-    if (icon.iconType == 0 && !isYouTab) {
+    if (icon.iconType == 0) {
         YTIcon realIconType = getIconType(icon);
         icon.iconType = normalizeIconType(realIconType);
     }

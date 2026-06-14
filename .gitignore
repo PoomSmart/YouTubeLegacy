@@ -1,5 +1,5 @@
 .theos
 .DS_Store
 packages
-experimental.txt
-Debug.x
+experimental/
+Debug*.x

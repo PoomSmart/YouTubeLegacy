@@ -3,7 +3,6 @@
 
 #define DidApplyDefaultSettingsKey @"YTL_DidApplyDefaultSettings"
 #define DidApplyDefaultSettings2Key @"YTL_DidApplyDefaultSettings2"
-#define DidShowInformationAlertKey @"YTL_DidShowInformationAlert"
 #define DidShowInformationAlert2Key @"YTL_DidShowInformationAlert2"
 #define YouSpeedEnabledKey @"YTVideoOverlay-YouSpeed-Enabled"
 #define YouSpeedButtonPositionKey @"YTVideoOverlay-YouSpeed-Position"

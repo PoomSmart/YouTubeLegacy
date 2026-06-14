@@ -203,15 +203,6 @@ NSBundle *TweakBundle(void) {
             [defaults setBool:YES forKey:RYDUseItsDataKey];
             [defaults synchronize];
         }
-        if (![defaults boolForKey:DidShowInformationAlertKey]) {
-            [defaults setBool:YES forKey:DidShowInformationAlertKey];
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                YTAlertView *alertView = [%c(YTAlertView) infoDialog];
-                alertView.title = TweakName;
-                alertView.subtitle = LOC(@"TWEAK_INFORMATION");
-                [alertView show];
-            });
-        }
         if (ref) {
             ELMMakeElementFunc = (id (*)(id, id))MSFindSymbol(ref, "_ELMMakeElement");
             YTPlaylistPageRefreshSupported = MSFindSymbol(ref, "_YTPlaylistPageRefreshSupported");
