@@ -94,6 +94,8 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
     BOOL isYouTab = [renderer.pivotIdentifier isEqualToString:@"FElibrary"];
     if (icon.iconType == 0) {
         YTIcon realIconType = getIconType(icon);
+        if (realIconType == 0 && isYouTab)
+            realIconType = YT_ACCOUNT_CIRCLE;
         icon.iconType = normalizeIconType(realIconType);
     }
     %orig;

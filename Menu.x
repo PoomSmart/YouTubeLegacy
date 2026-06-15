@@ -274,4 +274,3 @@ static BOOL shouldNotHandleTap(ELMNodeController *nodeController) {
     if (!shouldEnableTweak) return;
     %init;
 }
-
