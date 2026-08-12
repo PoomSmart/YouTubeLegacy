@@ -163,6 +163,10 @@ NSBundle *TweakBundle(void) {
 %end
 
 %ctor {
+    if ([NSBundle.mainBundle.bundleIdentifier isEqualToString:@"com.google.ios.youtube.WidgetKitExtension"]) {
+        shouldEnableTweak = NO;
+        return;
+    }
     NSString *bundlePath = [NSString stringWithFormat:@"%@/Frameworks/Module_Framework.framework", NSBundle.mainBundle.bundlePath];
     dlopen([bundlePath UTF8String], RTLD_NOW);
     MSImageRef ref = MSGetImageByName([[bundlePath stringByAppendingString:@"/Module_Framework"] UTF8String]);
