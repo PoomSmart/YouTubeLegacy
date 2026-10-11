@@ -3,6 +3,8 @@
 #import <YouTubeHeader/GPBUnknownFields.h>
 #import <YouTubeHeader/NSArray+YouTube.h>
 #import <YouTubeHeader/QTMIcon.h>
+#import <YouTubeHeader/YTAccountScopedInnerTubeContextFactory.h>
+#import <YouTubeHeader/YTIClientInfo.h>
 #import <YouTubeHeader/YTICompactVideoRenderer.h>
 #import <YouTubeHeader/YTIPivotBarIconOnlyItemRenderer.h>
 #import <YouTubeHeader/YTIPivotBarItemRenderer.h>
@@ -28,6 +30,17 @@ static YTIcon normalizeIconType(YTIcon iconType) {
     if (iconType == YT_ACCOUNT_CIRCLE_CAIRO) return YT_ACCOUNT_CIRCLE;
     return iconType;
 }
+
+%hook YTAccountScopedInnerTubeContextFactory
+
+- (YTIClientInfo *)clientInfoWithSendDeviceIdentifier:(BOOL)sendDeviceIdentifier serviceType:(NSInteger)serviceType {
+    YTIClientInfo *clientInfo = %orig;
+    if (serviceType == 89) // Guide, Server only sends the You tab avatar as thumbnail to newer clients
+        clientInfo.clientVersion = @"21.33.6";
+    return clientInfo;
+}
+
+%end
 
 %hook YTHotConfig
 
@@ -90,13 +103,15 @@ static void setYouTabIcon(YTPivotBarItemView *self, YTIPivotBarItemRenderer *ren
 }
 
 - (void)setRenderer:(YTIPivotBarItemRenderer *)renderer {
-    YTIIcon *icon = renderer.icon;
     BOOL isYouTab = [renderer.pivotIdentifier isEqualToString:@"FElibrary"];
-    if (icon.iconType == 0) {
-        YTIcon realIconType = getIconType(icon);
-        if (realIconType == 0 && isYouTab)
-            realIconType = YT_ACCOUNT_CIRCLE;
-        icon.iconType = normalizeIconType(realIconType);
+    if (![renderer respondsToSelector:@selector(imageOneOfCase)] || renderer.imageOneOfCase != 15) {
+        YTIIcon *icon = renderer.icon;
+        if (icon.iconType == 0) {
+            YTIcon realIconType = getIconType(icon);
+            if (realIconType == 0 && isYouTab)
+                realIconType = YT_ACCOUNT_CIRCLE;
+            icon.iconType = normalizeIconType(realIconType);
+        }
     }
     %orig;
     if (isYouTube18OrNewer || !isYouTab) return;
